@@ -24,9 +24,7 @@ export const getCustomers = async (
 
         const rawLimit = parseInt(limitQuery as string, 10)
         if (isNaN(rawLimit) || rawLimit < 1 || rawLimit > 10) {
-            return next(
-                new BadRequestError('Параметр limit должен быть от 1 до 10')
-            )
+          return next(new BadRequestError('Параметр limit должен быть от 1 до 10'))
         }
         const limitNum = rawLimit
 
