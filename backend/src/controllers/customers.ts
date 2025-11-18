@@ -24,20 +24,22 @@ export const getCustomers = async (
 
         const rawLimit = parseInt(limitQuery as string, 10)
         if (isNaN(rawLimit) || rawLimit < 1 || rawLimit > 10) {
-          return next(new BadRequestError('Параметр limit должен быть от 1 до 10'))
+            return next(
+                new BadRequestError('Параметр limit должен быть от 1 до 10')
+            )
         }
         const limitNum = rawLimit
 
         const filters: FilterQuery<Partial<IUser>> = {}
 
         if (search) {
-            const escaped = String(search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            const escaped = String(search).replace(
+                /[.*+?^${}()|[\]\\]/g,
+                '\\$&'
+            )
             const regex = new RegExp(escaped, 'i')
-            filters.$or = [
-              { name: regex },
-              { email: regex }
-            ]
-          }
+            filters.$or = [{ name: regex }, { email: regex }]
+        }
 
         const sort: { [key: string]: any } = {}
         if (sortField && sortOrder) {
