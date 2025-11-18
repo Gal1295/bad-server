@@ -8,105 +8,211 @@ import Product, { IProduct } from '../models/product'
 import User from '../models/user'
 
 export const getOrders = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
+  req: Request,
+  res: Response,
+  next: NextFunction
 ) => {
-    try {
-        const {
-            page: pageQuery = 1,
-            limit: limitQuery = 10,
-            sortField = 'createdAt',
-            sortOrder = 'desc',
-            status,
-        } = req.query
+  try {
+    const {
+      page: pageQuery = 1,
+      limit: limitQuery = 10,
+      sortField = 'createdAt',
+      sortOrder = 'desc',
+      status,
+    } = req.query
 
-        const pageNum = Math.max(1, parseInt(pageQuery as string, 10) || 1)
+    const pageNum = Math.max(1, parseInt(pageQuery as string, 10) || 1)
 
-        const rawLimit = parseInt(limitQuery as string, 10)
-        if (isNaN(rawLimit) || rawLimit < 1 || rawLimit > 10) {
-            return next(
-                new BadRequestError('Параметр limit должен быть от 1 до 10')
-            )
-        }
-        const limitNum = rawLimit
-
-        const filters: FilterQuery<Partial<IOrder>> = {}
-        if (status) {
-            if (typeof status !== 'string') {
-                return next(new BadRequestError('Некорректный параметр status'))
-            }
-            filters.status = status
-        }
-
-        const totalOrders = await Order.countDocuments(filters)
-        const totalPages = Math.ceil(totalOrders / limitNum)
-
-        res.status(200).json({
-            Order,
-            pagination: {
-                totalOrders,
-                totalPages,
-                currentPage: pageNum,
-                pageSize: limitNum,
-            },
-        })
-    } catch (error) {
-        next(error)
+    const rawLimit = parseInt(limitQuery as string, 10)
+    if (isNaN(rawLimit) || rawLimit < 1 || rawLimit > 10) {
+      return next(new BadRequestError('Параметр limit должен быть от 1 до 10'))
     }
+    const limitNum = rawLimit
+
+    const filters: FilterQuery<Partial<IOrder>> = {}
+    if (status && typeof status === 'string') {
+      filters.status = status
+    }
+
+    const sort: any = {}
+    if (sortField && sortOrder) {
+      sort[sortField as string] = sortOrder === 'desc' ? -1 : 1
+    }
+
+    const orders = await Order.find(filters)
+      .sort(sort)
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum)
+      .populate(['customer', 'products'])
+
+    const totalOrders = await Order.countDocuments(filters)
+    const totalPages = Math.ceil(totalOrders / limitNum)
+
+    res.status(200).json({
+      orders,
+      pagination: {
+        totalOrders,
+        totalPages,
+        currentPage: pageNum,
+        pageSize: limitNum,
+      },
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const getOrdersCurrentUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = res.locals.user._id
+    const { page = 1, limit = 10 } = req.query
+
+    const pageNum = Math.max(1, parseInt(page as string, 10) || 1)
+    const limitNum = Math.min(Math.max(1, parseInt(limit as string, 10) || 10), 10)
+
+    const orders = await Order.find({ customer: userId })
+      .sort({ createdAt: -1 })
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum)
+      .populate(['products', 'customer'])
+
+    const totalOrders = await Order.countDocuments({ customer: userId })
+
+    res.json({
+      orders,
+      pagination: {
+        totalOrders,
+        totalPages: Math.ceil(totalOrders / limitNum),
+        currentPage: pageNum,
+        pageSize: limitNum,
+      },
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const getOrderByNumber = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const order = await Order.findOne({ orderNumber: req.params.orderNumber })
+      .populate(['customer', 'products'])
+      .orFail(new NotFoundError('Заказ не найден'))
+
+    res.json(order)
+  } catch (error) {
+    next(error)
+  }
+}
+export const getOrderCurrentUserByNumber = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = res.locals.user._id
+    const order = await Order.findOne({
+      orderNumber: req.params.orderNumber,
+      customer: userId,
+    })
+      .populate(['customer', 'products'])
+      .orFail(new NotFoundError('Заказ не найден'))
+
+    res.json(order)
+  } catch (error) {
+    next(error)
+  }
 }
 
 export const createOrder = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
+  req: Request,
+  res: Response,
+  next: NextFunction
 ) => {
-    try {
-        const {
-            phone: rawPhone,
-            comment,
-            items,
-            total,
-            address,
-            payment,
-            email,
-        } = req.body
-        const userId = res.locals.user._id
-        const phone = rawPhone
-            ? String(rawPhone)
-                  .replace(/[^\d+() -]/g, '')
-                  .trim()
-            : ''
-        if (!phone || !/^\+?\d{5,15}$/.test(phone.replace(/[\s()+-]/g, ''))) {
-            return next(new BadRequestError('Некорректный номер телефона'))
-        }
-        const cleanComment = comment
-            ? sanitizeHtml(String(comment), {
-                  allowedTags: [],
-                  allowedAttributes: {},
-              })
-            : ''
-
-        const newOrder = new Order({
-            totalAmount: total,
-            products: items,
-            payment,
-            phone,
-            email,
-            comment: cleanComment,
-            customer: userId,
-            deliveryAddress: address,
-        })
-
-        const populated = await newOrder.populate(['customer', 'products'])
-        await populated.save()
-
-        return res.status(201).json(populated)
-    } catch (error) {
-        next(
-            error instanceof MongooseError.ValidationError
-                ? new BadRequestError(error.message)
-                : error
-        )
+  try {
+    const {
+      phone: rawPhone,
+      comment,
+      items,
+      total,
+      address,
+      payment,
+      email,
+    } = req.body
+    const userId = res.locals.user._id
+    const phone = rawPhone
+      ? String(rawPhone).replace(/[^\d+() -]/g, '').trim()
+      : ''
+    if (!phone || !/^\+?\d{5,15}$/.test(phone.replace(/[\s()+-]/g, ''))) {
+      return next(new BadRequestError('Некорректный номер телефона'))
     }
+    const cleanComment = comment
+      ? sanitizeHtml(String(comment), { allowedTags: [], allowedAttributes: {} })
+      : ''
+
+    const newOrder = new Order({
+      totalAmount: total,
+      products: items,
+      payment,
+      phone,
+      email,
+      comment: cleanComment,
+      customer: userId,
+      deliveryAddress: address,
+    })
+
+    const populated = await newOrder.populate(['customer', 'products'])
+    await populated.save()
+
+    res.status(201).json(populated)
+  } catch (error) {
+    next(
+      error instanceof MongooseError.ValidationError
+        ? new BadRequestError(error.message)
+        : error
+    )
+  }
+}
+
+export const updateOrder = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { status } = req.body
+    const updatedOrder = await Order.findOneAndUpdate(
+      { orderNumber: req.params.orderNumber },
+      { status },
+      { new: true, runValidators: true }
+    )
+      .populate(['customer', 'products'])
+      .orFail(new NotFoundError('Заказ не найден'))
+
+    res.json(updatedOrder)
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const deleteOrder = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const deletedOrder = await Order.findByIdAndDelete(req.params.id)
+      .orFail(new NotFoundError('Заказ не найден'))
+
+    res.json(deletedOrder)
+  } catch (error) {
+    next(error)
+  }
 }
