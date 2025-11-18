@@ -5,6 +5,7 @@ import NotFoundError from '../errors/not-found-error'
 import Order, { IOrder } from '../models/order'
 import Product, { IProduct } from '../models/product'
 import User from '../models/user'
+import sanitizeHtml from 'sanitize-html'
 
 // eslint-disable-next-line max-len
 // GET /orders?page=2&limit=5&sort=totalAmount&order=desc&orderDateFrom=2024-07-01&orderDateTo=2024-08-01&status=delivering&totalAmountFrom=100&totalAmountTo=1000&search=%2B1
@@ -140,18 +141,15 @@ export const getOrdersCurrentUser = async (
         let orders = user.orders as unknown as IOrder[]
 
         if (search) {
-            // если не экранировать то получаем Invalid regular expression: /+1/i: Nothing to repeat
             const searchRegex = new RegExp(search as string, 'i')
             const searchNumber = Number(search)
             const products = await Product.find({ title: searchRegex })
             const productIds = products.map((product) => product._id)
 
             orders = orders.filter((order) => {
-                // eslint-disable-next-line max-len
                 const matchesProductTitle = order.products.some((product) =>
                     productIds.some((id) => id.equals(product._id))
                 )
-                // eslint-disable-next-line max-len
                 const matchesOrderNumber =
                     !Number.isNaN(searchNumber) &&
                     order.orderNumber === searchNumber
@@ -247,9 +245,17 @@ export const createOrder = async (
         const basket: IProduct[] = []
         const products = await Product.find<IProduct>({})
         const userId = res.locals.user._id
-        const { address, payment, phone, total, email, items, comment } =
+        const { address, payment, phone: rawPhone, total, email, items, comment } =
             req.body
-
+            const phone = rawPhone
+            ? String(rawPhone).replace(/[^\d+() -]/g, '').trim()
+            : ''    
+          if (!phone || phone.length < 5) {
+            return next(new BadRequestError('Укажите корректный номер телефона'))
+          }
+          const cleanComment = comment
+  ? sanitizeHtml(String(comment), { allowedTags: [], allowedAttributes: {} })
+  : ''
         items.forEach((id: Types.ObjectId) => {
             const product = products.find((p) => p._id.equals(id))
             if (!product) {
@@ -271,7 +277,7 @@ export const createOrder = async (
             payment,
             phone,
             email,
-            comment,
+            comment: cleanComment,
             customer: userId,
             deliveryAddress: address,
         })
