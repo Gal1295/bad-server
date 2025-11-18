@@ -26,9 +26,9 @@ const auth = async (req: Request, res: Response, next: NextFunction) => {
   }
 }
 export const adminGuard = (req: Request, res: Response, next: NextFunction) => {
-  if (!res.locals.user || res.locals.user.role !== 'admin') {
-    return next(new ForbiddenError('Доступ запрещён'))
+    if (!res.locals.user || !res.locals.user.roles?.includes('admin')) {
+      return next(new ForbiddenError('Доступ запрещён'))
+    }
+    next()
   }
-  next()
-}
 export default auth
