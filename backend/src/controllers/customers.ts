@@ -31,25 +31,13 @@ export const getCustomers = async (
         const filters: FilterQuery<Partial<IUser>> = {}
 
         if (search) {
-            const escaped = String(search).replace(
-                /[.*+?^${}()|[\]\\]/g,
-                '\\$&'
-            )
+            const escaped = String(search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
             const regex = new RegExp(escaped, 'i')
-            const ordersWithAddress = await Order.find(
-                { deliveryAddress: regex },
-                'customer'
-            )
-            const customerIdsFromOrders: Types.ObjectId[] = ordersWithAddress
-                .map((o) => o.customer)
-                .filter((id): id is Types.ObjectId => id !== undefined)
-
             filters.$or = [
-                { name: regex },
-                { email: regex },
-                { _id: { $in: customerIdsFromOrders } },
+              { name: regex },
+              { email: regex }
             ]
-        }
+          }
 
         const sort: { [key: string]: any } = {}
         if (sortField && sortOrder) {

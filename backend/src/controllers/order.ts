@@ -147,10 +147,8 @@ export const createOrder = async (
       email,
     } = req.body
     const userId = res.locals.user._id
-    const phone = rawPhone
-      ? String(rawPhone).replace(/[^\d+() -]/g, '').trim()
-      : ''
-    if (!phone || !/^\+?\d{5,15}$/.test(phone.replace(/[\s()+-]/g, ''))) {
+    const phone = rawPhone ? String(rawPhone).replace(/[^\d+]/g, '') : ''
+    if (!phone || phone.length < 10 || phone.length > 15 || !/^\+?\d+$/.test(phone)) {
       return next(new BadRequestError('Некорректный номер телефона'))
     }
     const cleanComment = comment
