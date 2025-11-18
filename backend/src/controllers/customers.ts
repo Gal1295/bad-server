@@ -14,8 +14,8 @@ export const getCustomers = async (
 ) => {
     try {
         const {
-            page = 1,
-            limit = 10,
+            page: pageQuery = 1,
+            limit: limitQuery = 10,
             sortField = 'createdAt',
             sortOrder = 'desc',
             registrationDateFrom,
@@ -27,131 +27,57 @@ export const getCustomers = async (
             orderCountFrom,
             orderCountTo,
             search,
-        } = req.query
+        } = req.query;
 
-        const filters: FilterQuery<Partial<IUser>> = {}
+        let pageNum = parseInt(pageQuery as string, 10);
+        if (isNaN(pageNum) || pageNum < 1) pageNum = 1;
 
-        if (registrationDateFrom) {
-            filters.createdAt = {
-                ...filters.createdAt,
-                $gte: new Date(registrationDateFrom as string),
-            }
-        }
+        let limitNum = parseInt(limitQuery as string, 10);
+        if (isNaN(limitNum) || limitNum < 1) limitNum = 10;
+        limitNum = Math.min(limitNum, 10);
 
-        if (registrationDateTo) {
-            const endOfDay = new Date(registrationDateTo as string)
-            endOfDay.setHours(23, 59, 59, 999)
-            filters.createdAt = {
-                ...filters.createdAt,
-                $lte: endOfDay,
-            }
-        }
+        const filters: FilterQuery<Partial<IUser>> = {};
 
-        if (lastOrderDateFrom) {
-            filters.lastOrderDate = {
-                ...filters.lastOrderDate,
-                $gte: new Date(lastOrderDateFrom as string),
-            }
-        }
 
-        if (lastOrderDateTo) {
-            const endOfDay = new Date(lastOrderDateTo as string)
-            endOfDay.setHours(23, 59, 59, 999)
-            filters.lastOrderDate = {
-                ...filters.lastOrderDate,
-                $lte: endOfDay,
-            }
-        }
-
-        if (totalAmountFrom) {
-            filters.totalAmount = {
-                ...filters.totalAmount,
-                $gte: Number(totalAmountFrom),
-            }
-        }
-
-        if (totalAmountTo) {
-            filters.totalAmount = {
-                ...filters.totalAmount,
-                $lte: Number(totalAmountTo),
-            }
-        }
-
-        if (orderCountFrom) {
-            filters.orderCount = {
-                ...filters.orderCount,
-                $gte: Number(orderCountFrom),
-            }
-        }
-
-        if (orderCountTo) {
-            filters.orderCount = {
-                ...filters.orderCount,
-                $lte: Number(orderCountTo),
-            }
-        }
-
-        if (search) {
-            const searchRegex = new RegExp(search as string, 'i')
-            const orders = await Order.find(
-                {
-                    $or: [{ deliveryAddress: searchRegex }],
-                },
-                '_id'
-            )
-
-            const orderIds = orders.map((order) => order._id)
-
-            filters.$or = [
-                { name: searchRegex },
-                { lastOrder: { $in: orderIds } },
-            ]
-        }
-
-        const sort: { [key: string]: any } = {}
-
+        const sort: { [key: string]: any } = {};
         if (sortField && sortOrder) {
-            sort[sortField as string] = sortOrder === 'desc' ? -1 : 1
+            sort[sortField as string] = sortOrder === 'desc' ? -1 : 1;
         }
 
         const options = {
             sort,
-            skip: (Number(page) - 1) * Number(limit),
-            limit: Number(limit),
-        }
+            skip: (pageNum - 1) * limitNum,
+            limit: limitNum,
+        };
 
         const users = await User.find(filters, null, options).populate([
             'orders',
             {
                 path: 'lastOrder',
-                populate: {
-                    path: 'products',
-                },
+                populate: { path: 'products' },
             },
             {
                 path: 'lastOrder',
-                populate: {
-                    path: 'customer',
-                },
+                populate: { path: 'customer' },
             },
-        ])
+        ]);
 
-        const totalUsers = await User.countDocuments(filters)
-        const totalPages = Math.ceil(totalUsers / Number(limit))
+        const totalUsers = await User.countDocuments(filters);
+        const totalPages = Math.ceil(totalUsers / limitNum);
 
         res.status(200).json({
             customers: users,
             pagination: {
                 totalUsers,
                 totalPages,
-                currentPage: Number(page),
-                pageSize: Number(limit),
+                currentPage: pageNum,
+                pageSize: limitNum,
             },
-        })
+        });
     } catch (error) {
-        next(error)
+        next(error);
     }
-}
+};
 
 // TODO: Добавить guard admin
 // Get /customers/:id

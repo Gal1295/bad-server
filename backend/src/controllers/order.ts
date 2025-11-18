@@ -16,8 +16,8 @@ export const getOrders = async (
 ) => {
     try {
         const {
-            page = 1,
-            limit = 10,
+            page: pageQuery = 1,
+            limit: limitQuery = 10,
             sortField = 'createdAt',
             sortOrder = 'desc',
             status,
@@ -26,44 +26,20 @@ export const getOrders = async (
             orderDateFrom,
             orderDateTo,
             search,
-        } = req.query
+        } = req.query;
 
-        const filters: FilterQuery<Partial<IOrder>> = {}
+        let pageNum = parseInt(pageQuery as string, 10);
+        if (isNaN(pageNum) || pageNum < 1) pageNum = 1;
+
+        let limitNum = parseInt(limitQuery as string, 10);
+        if (isNaN(limitNum) || limitNum < 1) limitNum = 10;
+        limitNum = Math.min(limitNum, 10);
+
+        const filters: FilterQuery<Partial<IOrder>> = {};
 
         if (status) {
-            if (typeof status === 'object') {
-                Object.assign(filters, status)
-            }
             if (typeof status === 'string') {
-                filters.status = status
-            }
-        }
-
-        if (totalAmountFrom) {
-            filters.totalAmount = {
-                ...filters.totalAmount,
-                $gte: Number(totalAmountFrom),
-            }
-        }
-
-        if (totalAmountTo) {
-            filters.totalAmount = {
-                ...filters.totalAmount,
-                $lte: Number(totalAmountTo),
-            }
-        }
-
-        if (orderDateFrom) {
-            filters.createdAt = {
-                ...filters.createdAt,
-                $gte: new Date(orderDateFrom as string),
-            }
-        }
-
-        if (orderDateTo) {
-            filters.createdAt = {
-                ...filters.createdAt,
-                $lte: new Date(orderDateTo as string),
+                filters.status = status;
             }
         }
 
@@ -87,37 +63,17 @@ export const getOrders = async (
             },
             { $unwind: '$customer' },
             { $unwind: '$products' },
-        ]
+        ];
 
-        if (search) {
-            const searchRegex = new RegExp(search as string, 'i')
-            const searchNumber = Number(search)
-
-            const searchConditions: any[] = [{ 'products.title': searchRegex }]
-
-            if (!Number.isNaN(searchNumber)) {
-                searchConditions.push({ orderNumber: searchNumber })
-            }
-
-            aggregatePipeline.push({
-                $match: {
-                    $or: searchConditions,
-                },
-            })
-
-            filters.$or = searchConditions
-        }
-
-        const sort: { [key: string]: any } = {}
-
+        const sort: { [key: string]: any } = {};
         if (sortField && sortOrder) {
-            sort[sortField as string] = sortOrder === 'desc' ? -1 : 1
+            sort[sortField as string] = sortOrder === 'desc' ? -1 : 1;
         }
 
         aggregatePipeline.push(
             { $sort: sort },
-            { $skip: (Number(page) - 1) * Number(limit) },
-            { $limit: Number(limit) },
+            { $skip: (pageNum - 1) * limitNum },
+            { $limit: limitNum },
             {
                 $group: {
                     _id: '$_id',
@@ -129,25 +85,25 @@ export const getOrders = async (
                     createdAt: { $first: '$createdAt' },
                 },
             }
-        )
+        );
 
-        const orders = await Order.aggregate(aggregatePipeline)
-        const totalOrders = await Order.countDocuments(filters)
-        const totalPages = Math.ceil(totalOrders / Number(limit))
+        const orders = await Order.aggregate(aggregatePipeline);
+        const totalOrders = await Order.countDocuments(filters);
+        const totalPages = Math.ceil(totalOrders / limitNum);
 
         res.status(200).json({
             orders,
             pagination: {
                 totalOrders,
                 totalPages,
-                currentPage: Number(page),
-                pageSize: Number(limit),
+                currentPage: pageNum,
+                pageSize: limitNum,
             },
-        })
+        });
     } catch (error) {
-        next(error)
+        next(error);
     }
-}
+};
 
 export const getOrdersCurrentUser = async (
     req: Request,
