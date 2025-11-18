@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from 'express'
 import { FilterQuery, Types } from 'mongoose'
+import BadRequestError from '../errors/bad-request-error'
 import NotFoundError from '../errors/not-found-error'
 import Order from '../models/order'
 import User, { IUser } from '../models/user'
@@ -21,9 +22,13 @@ export const getCustomers = async (
         let pageNum = parseInt(pageQuery as string, 10)
         if (isNaN(pageNum) || pageNum < 1) pageNum = 1
 
-        let limitNum = parseInt(limitQuery as string, 10)
-        if (isNaN(limitNum) || limitNum < 1) limitNum = 10
-        limitNum = Math.min(limitNum, 10)
+        const rawLimit = parseInt(limitQuery as string, 10)
+        if (isNaN(rawLimit) || rawLimit < 1 || rawLimit > 10) {
+            return next(
+                new BadRequestError('Параметр limit должен быть от 1 до 10')
+            )
+        }
+        const limitNum = rawLimit
 
         const filters: FilterQuery<Partial<IUser>> = {}
 
@@ -97,6 +102,13 @@ export const getCustomerById = async (
             'orders',
             'lastOrder',
         ])
+        if (!user) {
+            return next(
+                new NotFoundError(
+                    'Пользователь по заданному id отсутствует в базе'
+                )
+            )
+        }
         res.status(200).json(user)
     } catch (error) {
         next(error)
@@ -112,7 +124,7 @@ export const updateCustomer = async (
         const updatedUser = await User.findByIdAndUpdate(
             req.params.id,
             req.body,
-            { new: true }
+            { new: true, runValidators: true }
         )
             .orFail(
                 () =>
