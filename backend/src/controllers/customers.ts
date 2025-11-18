@@ -1,12 +1,9 @@
 import { NextFunction, Request, Response } from 'express'
-import { FilterQuery } from 'mongoose'
+import { FilterQuery, Types } from 'mongoose'
 import NotFoundError from '../errors/not-found-error'
 import Order from '../models/order'
 import User, { IUser } from '../models/user'
 
-// TODO: Добавить guard admin
-// eslint-disable-next-line max-len
-// Get GET /customers?page=2&limit=5&sort=totalAmount&order=desc&registrationDateFrom=2023-01-01&registrationDateTo=2023-12-31&lastOrderDateFrom=2023-01-01&lastOrderDateTo=2023-12-31&totalAmountFrom=100&totalAmountTo=1000&orderCountFrom=1&orderCountTo=10
 export const getCustomers = async (
     req: Request,
     res: Response,
@@ -18,37 +15,49 @@ export const getCustomers = async (
             limit: limitQuery = 10,
             sortField = 'createdAt',
             sortOrder = 'desc',
-            registrationDateFrom,
-            registrationDateTo,
-            lastOrderDateFrom,
-            lastOrderDateTo,
-            totalAmountFrom,
-            totalAmountTo,
-            orderCountFrom,
-            orderCountTo,
             search,
-        } = req.query;
+        } = req.query
 
-        let pageNum = parseInt(pageQuery as string, 10);
-        if (isNaN(pageNum) || pageNum < 1) pageNum = 1;
+        let pageNum = parseInt(pageQuery as string, 10)
+        if (isNaN(pageNum) || pageNum < 1) pageNum = 1
 
-        let limitNum = parseInt(limitQuery as string, 10);
-        if (isNaN(limitNum) || limitNum < 1) limitNum = 10;
-        limitNum = Math.min(limitNum, 10);
+        let limitNum = parseInt(limitQuery as string, 10)
+        if (isNaN(limitNum) || limitNum < 1) limitNum = 10
+        limitNum = Math.min(limitNum, 10)
 
-        const filters: FilterQuery<Partial<IUser>> = {};
+        const filters: FilterQuery<Partial<IUser>> = {}
 
+        if (search) {
+            const escaped = String(search).replace(
+                /[.*+?^${}()|[\]\\]/g,
+                '\\$&'
+            )
+            const regex = new RegExp(escaped, 'i')
+            const ordersWithAddress = await Order.find(
+                { deliveryAddress: regex },
+                'customer'
+            )
+            const customerIdsFromOrders: Types.ObjectId[] = ordersWithAddress
+                .map((o) => o.customer)
+                .filter((id): id is Types.ObjectId => id !== undefined)
 
-        const sort: { [key: string]: any } = {};
+            filters.$or = [
+                { name: regex },
+                { email: regex },
+                { _id: { $in: customerIdsFromOrders } },
+            ]
+        }
+
+        const sort: { [key: string]: any } = {}
         if (sortField && sortOrder) {
-            sort[sortField as string] = sortOrder === 'desc' ? -1 : 1;
+            sort[sortField as string] = sortOrder === 'desc' ? -1 : 1
         }
 
         const options = {
             sort,
             skip: (pageNum - 1) * limitNum,
             limit: limitNum,
-        };
+        }
 
         const users = await User.find(filters, null, options).populate([
             'orders',
@@ -60,10 +69,10 @@ export const getCustomers = async (
                 path: 'lastOrder',
                 populate: { path: 'customer' },
             },
-        ]);
+        ])
 
-        const totalUsers = await User.countDocuments(filters);
-        const totalPages = Math.ceil(totalUsers / limitNum);
+        const totalUsers = await User.countDocuments(filters)
+        const totalPages = Math.ceil(totalUsers / limitNum)
 
         res.status(200).json({
             customers: users,
@@ -73,14 +82,11 @@ export const getCustomers = async (
                 currentPage: pageNum,
                 pageSize: limitNum,
             },
-        });
+        })
     } catch (error) {
-        next(error);
+        next(error)
     }
-};
-
-// TODO: Добавить guard admin
-// Get /customers/:id
+}
 export const getCustomerById = async (
     req: Request,
     res: Response,
@@ -97,8 +103,6 @@ export const getCustomerById = async (
     }
 }
 
-// TODO: Добавить guard admin
-// Patch /customers/:id
 export const updateCustomer = async (
     req: Request,
     res: Response,
@@ -108,9 +112,7 @@ export const updateCustomer = async (
         const updatedUser = await User.findByIdAndUpdate(
             req.params.id,
             req.body,
-            {
-                new: true,
-            }
+            { new: true }
         )
             .orFail(
                 () =>
@@ -125,8 +127,6 @@ export const updateCustomer = async (
     }
 }
 
-// TODO: Добавить guard admin
-// Delete /customers/:id
 export const deleteCustomer = async (
     req: Request,
     res: Response,

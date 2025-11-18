@@ -27,21 +27,22 @@ export const getOrders = async (
             orderDateFrom,
             orderDateTo,
             search,
-        } = req.query;
+        } = req.query
 
-        let pageNum = parseInt(pageQuery as string, 10);
-        if (isNaN(pageNum) || pageNum < 1) pageNum = 1;
+        let pageNum = parseInt(pageQuery as string, 10)
+        if (isNaN(pageNum) || pageNum < 1) pageNum = 1
 
-        let limitNum = parseInt(limitQuery as string, 10);
-        if (isNaN(limitNum) || limitNum < 1) limitNum = 10;
-        limitNum = Math.min(limitNum, 10);
+        let limitNum = parseInt(limitQuery as string, 10)
+        if (isNaN(limitNum) || limitNum < 1) limitNum = 10
+        limitNum = Math.min(limitNum, 10)
 
-        const filters: FilterQuery<Partial<IOrder>> = {};
+        const filters: FilterQuery<Partial<IOrder>> = {}
 
         if (status) {
-            if (typeof status === 'string') {
-                filters.status = status;
+            if (typeof status !== 'string') {
+                return next(new BadRequestError('Некорректный параметр status'))
             }
+            filters.status = status
         }
 
         const aggregatePipeline: any[] = [
@@ -64,11 +65,11 @@ export const getOrders = async (
             },
             { $unwind: '$customer' },
             { $unwind: '$products' },
-        ];
+        ]
 
-        const sort: { [key: string]: any } = {};
+        const sort: { [key: string]: any } = {}
         if (sortField && sortOrder) {
-            sort[sortField as string] = sortOrder === 'desc' ? -1 : 1;
+            sort[sortField as string] = sortOrder === 'desc' ? -1 : 1
         }
 
         aggregatePipeline.push(
@@ -86,11 +87,11 @@ export const getOrders = async (
                     createdAt: { $first: '$createdAt' },
                 },
             }
-        );
+        )
 
-        const orders = await Order.aggregate(aggregatePipeline);
-        const totalOrders = await Order.countDocuments(filters);
-        const totalPages = Math.ceil(totalOrders / limitNum);
+        const orders = await Order.aggregate(aggregatePipeline)
+        const totalOrders = await Order.countDocuments(filters)
+        const totalPages = Math.ceil(totalOrders / limitNum)
 
         res.status(200).json({
             orders,
@@ -100,11 +101,11 @@ export const getOrders = async (
                 currentPage: pageNum,
                 pageSize: limitNum,
             },
-        });
+        })
     } catch (error) {
-        next(error);
+        next(error)
     }
-};
+}
 
 export const getOrdersCurrentUser = async (
     req: Request,
@@ -245,17 +246,31 @@ export const createOrder = async (
         const basket: IProduct[] = []
         const products = await Product.find<IProduct>({})
         const userId = res.locals.user._id
-        const { address, payment, phone: rawPhone, total, email, items, comment } =
-            req.body
-            const phone = rawPhone
-            ? String(rawPhone).replace(/[^\d+() -]/g, '').trim()
-            : ''    
-          if (!phone || phone.length < 5) {
-            return next(new BadRequestError('Укажите корректный номер телефона'))
-          }
-          const cleanComment = comment
-  ? sanitizeHtml(String(comment), { allowedTags: [], allowedAttributes: {} })
-  : ''
+        const {
+            address,
+            payment,
+            phone: rawPhone,
+            total,
+            email,
+            items,
+            comment,
+        } = req.body
+        const phone = rawPhone
+            ? String(rawPhone)
+                  .replace(/[^\d+() -]/g, '')
+                  .trim()
+            : ''
+        if (!phone || phone.length < 5) {
+            return next(
+                new BadRequestError('Укажите корректный номер телефона')
+            )
+        }
+        const cleanComment = comment
+            ? sanitizeHtml(String(comment), {
+                  allowedTags: [],
+                  allowedAttributes: {},
+              })
+            : ''
         items.forEach((id: Types.ObjectId) => {
             const product = products.find((p) => p._id.equals(id))
             if (!product) {
