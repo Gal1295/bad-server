@@ -25,12 +25,10 @@ const auth = async (req: Request, res: Response, next: NextFunction) => {
     next(new UnauthorizedError('Невалидный токен'))
   }
 }
-
 export const adminGuard = (req: Request, res: Response, next: NextFunction) => {
   if (!res.locals.user || res.locals.user.role !== 'admin') {
     return next(new ForbiddenError('Доступ запрещён'))
   }
   next()
 }
-
 export default auth
