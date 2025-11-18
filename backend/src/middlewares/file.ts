@@ -15,7 +15,6 @@ const storage = multer.diskStorage({
         const uploadPath = process.env.UPLOAD_PATH_TEMP
             ? join(__dirname, `../public/${process.env.UPLOAD_PATH_TEMP}`)
             : join(__dirname, '../public')
-
         cb(null, uploadPath)
     },
 
@@ -30,7 +29,7 @@ const storage = multer.diskStorage({
     },
 })
 
-const types = [
+const allowedTypes = [
     'image/png',
     'image/jpg',
     'image/jpeg',
@@ -43,19 +42,15 @@ const fileFilter = (
     file: Express.Multer.File,
     cb: FileFilterCallback
 ) => {
-    if (types.includes(file.mimetype)) {
+    if (allowedTypes.includes(file.mimetype)) {
         cb(null, true)
     } else {
         cb(null, false)
     }
 }
 
-const upload = multer({
+export default multer({
     storage,
     fileFilter,
-    limits: {
-        fileSize: 10 * 1024 * 1024,
-    },
+    limits: { fileSize: 10 * 1024 * 1024 },
 })
-
-export default upload
