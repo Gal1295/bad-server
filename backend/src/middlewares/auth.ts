@@ -1,10 +1,9 @@
 import { NextFunction, Request, Response } from 'express'
 import jwt, { JwtPayload } from 'jsonwebtoken'
-import { Types } from 'mongoose'
-import { ACCESS_TOKEN } from '../config'
-import ForbiddenError from '../errors/forbidden-error'
+import UserModel from '../models/user'
 import UnauthorizedError from '../errors/unauthorized-error'
-import UserModel, { Role } from '../models/user'
+import ForbiddenError from '../errors/forbidden-error'
+import { ACCESS_TOKEN } from '../config'
 
 const auth = async (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.header('Authorization')
@@ -22,13 +21,14 @@ const auth = async (req: Request, res: Response, next: NextFunction) => {
     res.locals.user = user
     next()
   } catch (err) {
-    next(new UnauthorizedError('Невалидный токен'))
+    return next(new UnauthorizedError('Невалидный токен'))
   }
 }
 export const adminGuard = (req: Request, res: Response, next: NextFunction) => {
-    if (!res.locals.user || !res.locals.user.roles?.includes('admin')) {
-      return next(new ForbiddenError('Доступ запрещён'))
-    }
-    next()
+  if (!res.locals.user || !res.locals.user.roles?.includes('admin')) {
+    return next(new ForbiddenError('Доступ запрещён'))
   }
+  next()
+}
+
 export default auth
