@@ -18,7 +18,9 @@ const getProducts = async (req: Request, res: Response, next: NextFunction) => {
         
         let limitNum = Number(limit)
         if (isNaN(limitNum) || limitNum < 1) limitNum = 5
-        limitNum = Math.min(limitNum, 10)
+        if (limitNum > 10) {
+            return next(new BadRequestError('Лимит не может превышать 10'))
+        }
         
         const options = {
             skip: (pageNum - 1) * limitNum,
