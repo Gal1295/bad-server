@@ -1,4 +1,3 @@
-// src/middlewares/auth.ts — ВСТАВЬ ЭТОТ КОД КАК ЕСТЬ
 import { NextFunction, Request, Response } from 'express'
 import jwt, { JwtPayload } from 'jsonwebtoken'
 import { ACCESS_TOKEN } from '../config'
@@ -15,7 +14,7 @@ const auth = async (req: Request, res: Response, next: NextFunction) => {
     const token = authHeader.split(' ')[1]
     const payload = jwt.verify(token, ACCESS_TOKEN.secret) as JwtPayload
 
-    const user = await UserModel.findById(payload.sub).select('+roles')
+    const user = await UserModel.findById(payload.sub).select('-password +roles')
 
     if (!user) {
       return next(new ForbiddenError('Доступ запрещён'))
@@ -26,6 +25,7 @@ const auth = async (req: Request, res: Response, next: NextFunction) => {
     return next(new UnauthorizedError('Невалидный токен'))
   }
 }
+
 export const adminGuard = (req: Request, res: Response, next: NextFunction) => {
   if (!res.locals.user?.roles?.includes('admin')) {
     return next(new ForbiddenError('Доступ запрещён'))
