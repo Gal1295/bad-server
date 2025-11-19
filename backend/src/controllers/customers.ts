@@ -11,78 +11,49 @@ export const getCustomers = async (
     req: Request,
     res: Response,
     next: NextFunction
-) => {
+  ) => {
     try {
-        let limitValue = Number(req.query.limit) || 10
-        if (Number.isNaN(limitValue) || limitValue <= 0) {
-            limitValue = 10
-        }
-        if (limitValue > MAX_LIMIT) {
-            return next(new BadRequestError('Лимит не может превышать 10'))
-        }
-        const limit = limitValue
-
-        let pageValue = Number(req.query.page) || 1
-        if (Number.isNaN(pageValue) || pageValue < 1) {
-            pageValue = 1
-        }
-        const page = pageValue
-        const {
-            sortField = 'createdAt',
-            sortOrder = 'desc',
-            search,
-        } = req.query
-        const filters: FilterQuery<Partial<IUser>> = {}
-
-        if (search) {
-            const searchStr = String(search)
-            const safeSearch = escapeRegExp(searchStr)
-            const searchRegex = new RegExp(safeSearch, 'i')
-            filters.$or = [
-                { name: searchRegex },
-                { email: searchRegex }
-            ]
-        }
-
-        const sort: { [key: string]: any } = {}
-        if (sortField && sortOrder) {
-            sort[sortField as string] = sortOrder === 'desc' ? -1 : 1
-        }
-
-        const options = {
-            sort,
-            skip: (page - 1) * limit,
-            limit,
-        }
-
-        const users = await User.find(filters, null, options).populate([
-            'orders',
-            {
-                path: 'lastOrder',
-                populate: { path: 'products' },
-            },
-            {
-                path: 'lastOrder',
-                populate: { path: 'customer' },
-            },
+      const pageNum = Math.max(1, parseInt(req.query.page as string || '1', 10))
+      const limitNum = parseInt(req.query.limit as string || '10', 10)
+      const search = req.query.search
+  
+      if (isNaN(limitNum) || limitNum < 1 || limitNum > 10) {
+        return next(new BadRequestError('Лимит должен быть от 1 до 10'))
+      }
+  
+      const filters: FilterQuery<any> = {}
+      if (search) {
+        const escaped = String(search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        const regex = new RegExp(escaped, 'i')
+        filters.$or = [{ name: regex }, { email: regex }]
+      }
+  
+      const users = await User.find(filters)
+        .select('-password')
+        .skip((pageNum - 1) * limitNum)
+        .limit(limitNum)
+        .sort({ createdAt: -1 })
+        .populate([
+          'orders',
+          { path: 'lastOrder', populate: { path: 'products' } },
+          { path: 'lastOrder', populate: { path: 'customer' } },
         ])
-
-        const totalUsers = await User.countDocuments(filters)
-        const totalPages = Math.ceil(totalUsers / limit)
-
-        res.status(200).json({
-            customers: users,
-            pagination: {
-                totalUsers,
-                totalPages,
-                currentPage: page,
-                pageSize: limit,
-            },
-        })
+  
+      const totalUsers = await User.countDocuments(filters)
+  
+      res.json({
+        customers: users,
+        pagination: {
+          totalUsers,
+          totalPages: Math.ceil(totalUsers / limitNum),
+          currentPage: pageNum,
+          pageSize: limitNum,
+        },
+      })
     } catch (error) {
-        next(error)
+      next(error)
     }
-}
+  }
 
 export const getCustomerById = async (
     req: Request,
