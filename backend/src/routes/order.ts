@@ -9,15 +9,16 @@ import {
   deleteOrder,
 } from '../controllers/order'
 import { adminGuard } from '../middlewares/auth'
+import auth from '../middlewares/auth'
 
 const orderRouter = Router()
 
-orderRouter.post('/', createOrder) 
-orderRouter.get('/current', getOrdersCurrentUser)
-orderRouter.get('/current/:orderNumber', getOrderCurrentUserByNumber)
-orderRouter.get('/', adminGuard, getOrders)
-orderRouter.get('/:orderNumber', adminGuard, getOrderByNumber)
-orderRouter.patch('/:orderNumber', adminGuard, updateOrder)
-orderRouter.delete('/:id', adminGuard, deleteOrder)
+orderRouter.post('/', auth, createOrder)
+orderRouter.get('/current', auth, getOrdersCurrentUser)
+orderRouter.get('/current/:orderNumber', auth, getOrderCurrentUserByNumber)
+orderRouter.get('/', auth, adminGuard, getOrders)
+orderRouter.get('/:orderNumber', auth, adminGuard, getOrderByNumber)
+orderRouter.patch('/:orderNumber', auth, adminGuard, updateOrder)
+orderRouter.delete('/:id', auth, adminGuard, deleteOrder)
 
 export default orderRouter
