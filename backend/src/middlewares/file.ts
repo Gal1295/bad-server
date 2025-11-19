@@ -7,6 +7,7 @@ type DestinationCallback = (error: Error | null, destination: string) => void
 type FileNameCallback = (error: Error | null, filename: string) => void
 
 const allowedExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.svg']
+
 const storage = multer.diskStorage({
     destination: (
         _req: Request,
