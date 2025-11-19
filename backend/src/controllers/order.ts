@@ -74,12 +74,12 @@ export const getOrdersCurrentUser = async (
     try {
         const userId = res.locals.user._id
 
-        const pageNum = Math.max(1, parseInt(req.query.page as string, 10) || 1)
-        let limitNum = parseInt(req.query.limit as string, 10)
+        const pageNum = Math.max(1, parseInt(req.query.page as string || '1', 10))
+        const rawLimit = req.query.limit as string
+        const limitNum = rawLimit ? parseInt(rawLimit, 10) : 10
 
-        if (isNaN(limitNum) || limitNum < 1) limitNum = 10
-        if (limitNum > 10) {
-            return next(new BadRequestError('Лимит не может превышать 10'))
+        if (isNaN(limitNum) || limitNum < 1 || limitNum > 10) {
+            return next(new BadRequestError('Лимит должен быть от 1 до 10'))
         }
 
         const orders = await Order.find({ customer: userId })
