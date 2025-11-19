@@ -1,9 +1,10 @@
 import { NextFunction, Request, Response } from 'express'
 import jwt, { JwtPayload } from 'jsonwebtoken'
-import UserModel from '../models/user'
-import UnauthorizedError from '../errors/unauthorized-error'
-import ForbiddenError from '../errors/forbidden-error'
+import { Types } from 'mongoose'
 import { ACCESS_TOKEN } from '../config'
+import ForbiddenError from '../errors/forbidden-error'
+import UnauthorizedError from '../errors/unauthorized-error'
+import UserModel from '../models/user'
 
 const auth = async (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.header('Authorization')
@@ -14,13 +15,20 @@ const auth = async (req: Request, res: Response, next: NextFunction) => {
     const token = authHeader.split(' ')[1]
     const payload = jwt.verify(token, ACCESS_TOKEN.secret) as JwtPayload
 
-    const user = await UserModel.findById(payload.sub).select('-password -salt')
+    const user = await UserModel.findOne(
+      { _id: new Types.ObjectId(payload.sub) },
+      { password: 0, salt: 0 }
+    )
+
     if (!user) {
       return next(new ForbiddenError('Доступ запрещён'))
     }
     res.locals.user = user
     next()
-  } catch (err) {
+  } catch (err: any) {
+    if (err.name === 'TokenExpiredError') {
+      return next(new UnauthorizedError('Истёк срок действия токена'))
+    }
     return next(new UnauthorizedError('Невалидный токен'))
   }
 }
