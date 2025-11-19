@@ -21,10 +21,17 @@ export const getOrders = async (
             status,
         } = req.query
 
-        const pageNum = Math.max(1, parseInt(pageQuery as string, 10) || 1)
-        let limitNum = parseInt(limitQuery as string, 10)
-        if (isNaN(limitNum) || limitNum < 1) limitNum = 10
-        limitNum = Math.min(limitNum, 10)
+        const { page = 1, limit = 10 } = req.query
+
+        const pageNum = Math.max(1, parseInt(page as string, 10) || 1)
+        let limitNum = parseInt(limit as string, 10)
+        
+        if (isNaN(limitNum) || limitNum < 1) {
+            limitNum = 10
+        }
+        if (limitNum > 10) {
+            return next(new BadRequestError('Лимит не может превышать 10'))
+        }
 
         const filters: FilterQuery<Partial<IOrder>> = {}
         if (status && typeof status === 'string') {
@@ -66,12 +73,14 @@ export const getOrdersCurrentUser = async (
 ) => {
     try {
         const userId = res.locals.user._id
-        const { page = 1, limit = 10 } = req.query
 
-        const pageNum = Math.max(1, parseInt(page as string, 10) || 1)
-        let limitNum = parseInt(limit as string, 10)
+        const pageNum = Math.max(1, parseInt(req.query.page as string, 10) || 1)
+        let limitNum = parseInt(req.query.limit as string, 10)
+
         if (isNaN(limitNum) || limitNum < 1) limitNum = 10
-        limitNum = Math.min(limitNum, 10)
+        if (limitNum > 10) {
+            return next(new BadRequestError('Лимит не может превышать 10'))
+        }
 
         const orders = await Order.find({ customer: userId })
             .sort({ createdAt: -1 })

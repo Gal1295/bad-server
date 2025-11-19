@@ -17,8 +17,10 @@ export const getCustomers = async (
         if (Number.isNaN(limitValue) || limitValue <= 0) {
             limitValue = 10
         }
-
-        const limit = Math.min(limitValue, MAX_LIMIT)
+        if (limitValue > MAX_LIMIT) {
+            return next(new BadRequestError('Лимит не может превышать 10'))
+        }
+        const limit = limitValue
 
         let pageValue = Number(req.query.page) || 1
         if (Number.isNaN(pageValue) || pageValue < 1) {
