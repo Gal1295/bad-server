@@ -43,11 +43,18 @@ export const getCustomers = async (
                 ]
             })
 
+        const result = users.map(user => {
+            if (user.orders && user.orders.length > 10) {
+                user.orders = user.orders.slice(0, 10)
+            }
+            return user
+        })
+
         const totalUsers = await User.countDocuments(filters)
         const totalPages = Math.ceil(totalUsers / limit)
 
         res.json({
-            customers: users,
+            customers: result,
             pagination: {
                 totalUsers,
                 totalPages,
