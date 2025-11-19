@@ -21,10 +21,8 @@ export const getOrders = async (
             status,
         } = req.query
 
-        const { page = 1, limit = 10 } = req.query
-
-        const pageNum = Math.max(1, parseInt(page as string, 10) || 1)
-        let limitNum = parseInt(limit as string, 10)
+        const pageNum = Math.max(1, parseInt(pageQuery as string, 10) || 1)
+        let limitNum = parseInt(limitQuery as string, 10)
         
         if (isNaN(limitNum) || limitNum < 1) {
             limitNum = 10
@@ -70,38 +68,41 @@ export const getOrdersCurrentUser = async (
     req: Request,
     res: Response,
     next: NextFunction
-  ) => {
+) => {
     try {
-      const userId = res.locals.user._id
-  
-      const pageNum = Math.max(1, parseInt(req.query.page as string || '1', 10))
-      const limitNum = parseInt(req.query.limit as string || '10', 10)
-  
-      if (isNaN(limitNum) || limitNum < 1 || limitNum > 10) {
-        return next(new BadRequestError('Лимит должен быть от 1 до 10'))
-      }
-  
-      const orders = await Order.find({ customer: userId })
-        .sort({ createdAt: -1 })
-        .skip((pageNum - 1) * limitNum)
-        .limit(limitNum)
-        .populate(['products', 'customer'])
-  
-      const totalOrders = await Order.countDocuments({ customer: userId })
-  
-      res.json({
-        orders,
-        pagination: {
-          totalOrders,
-          totalPages: Math.ceil(totalOrders / limitNum),
-          currentPage: pageNum,
-          pageSize: limitNum,
-        },
-      })
+        const userId = res.locals.user._id
+
+        const pageNum = Math.max(1, parseInt(req.query.page as string || '1', 10))
+        let limitNum = parseInt(req.query.limit as string || '10', 10)
+
+        if (isNaN(limitNum) || limitNum < 1) {
+            limitNum = 10
+        }
+        if (limitNum > 10) {
+            return next(new BadRequestError('Лимит не может превышать 10'))
+        }
+
+        const orders = await Order.find({ customer: userId })
+            .sort({ createdAt: -1 })
+            .skip((pageNum - 1) * limitNum)
+            .limit(limitNum)
+            .populate(['products', 'customer'])
+
+        const totalOrders = await Order.countDocuments({ customer: userId })
+
+        res.json({
+            orders,
+            pagination: {
+                totalOrders,
+                totalPages: Math.ceil(totalOrders / limitNum),
+                currentPage: pageNum,
+                pageSize: limitNum,
+            },
+        })
     } catch (error) {
-      next(error)
+        next(error)
     }
-  }
+}
 
 export const getOrderByNumber = async (
     req: Request,
@@ -120,6 +121,7 @@ export const getOrderByNumber = async (
         next(error)
     }
 }
+
 export const getOrderCurrentUserByNumber = async (
     req: Request,
     res: Response,
