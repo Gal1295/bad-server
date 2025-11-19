@@ -22,14 +22,9 @@ export const getOrders = async (
         } = req.query
 
         const pageNum = Math.max(1, parseInt(pageQuery as string, 10) || 1)
-
-        const rawLimit = parseInt(limitQuery as string, 10)
-        if (isNaN(rawLimit) || rawLimit < 1 || rawLimit > 10) {
-            return next(
-                new BadRequestError('Параметр limit должен быть от 1 до 10')
-            )
-        }
-        const limitNum = rawLimit
+        let limitNum = parseInt(limitQuery as string, 10)
+        if (isNaN(limitNum) || limitNum < 1) limitNum = 10
+        limitNum = Math.min(limitNum, 10)
 
         const filters: FilterQuery<Partial<IOrder>> = {}
         if (status && typeof status === 'string') {
@@ -153,7 +148,6 @@ export const createOrder = async (
             payment,
             email,
         } = req.body
-        const userId = res.locals.user?._id
         const phone = rawPhone ? String(rawPhone).replace(/[^\d+]/g, '') : ''
         if (
             !phone ||
@@ -163,6 +157,7 @@ export const createOrder = async (
         ) {
             return next(new BadRequestError('Некорректный номер телефона'))
         }
+        const userId = res.locals.user?._id
         if (!userId) {
             return next(new BadRequestError('Пользователь не авторизован'))
         }
