@@ -69,10 +69,9 @@ export const getOrdersCurrentUser = async (
         const { page = 1, limit = 10 } = req.query
 
         const pageNum = Math.max(1, parseInt(page as string, 10) || 1)
-        const limitNum = Math.min(
-            Math.max(1, parseInt(limit as string, 10) || 10),
-            10
-        )
+        let limitNum = parseInt(limit as string, 10)
+        if (isNaN(limitNum) || limitNum < 1) limitNum = 10
+        limitNum = Math.min(limitNum, 10)
 
         const orders = await Order.find({ customer: userId })
             .sort({ createdAt: -1 })
