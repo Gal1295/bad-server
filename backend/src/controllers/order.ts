@@ -16,10 +16,10 @@ export const getOrders = async (
 ) => {
     try {
         let page = Math.max(1, parseInt(req.query.page as string || '1', 10))
-        let limit = Math.min(
-            Math.max(1, parseInt(req.query.limit as string || '10', 10)),
-            MAX_LIMIT
-        )
+        let limit = parseInt(req.query.limit as string || '10', 10)
+        
+        // Нормализация лимита
+        limit = Math.min(Math.max(1, limit), MAX_LIMIT)
 
         const filters: FilterQuery<Partial<IOrder>> = {}
         if (req.query.status && typeof req.query.status === 'string') {
@@ -36,21 +36,13 @@ export const getOrders = async (
             .populate('customer', 'name email')
             .populate('products')
 
-        // ✅ Ручное ограничение populate
-        const result = orders.map(order => {
-            if (order.products && Array.isArray(order.products) && order.products.length > 10) {
-                order.products = order.products.slice(0, 10)
-            }
-            return order
-        })
-
         const totalOrders = await Order.countDocuments(filters)
         const totalPages = Math.ceil(totalOrders / limit)
 
         res.status(200).json({
-            orders: result,
+            orders,
             pagination: {
-                totalUsers: totalOrders,
+                totalOrders,
                 totalPages,
                 currentPage: page,
                 pageSize: limit,
@@ -70,10 +62,10 @@ export const getOrdersCurrentUser = async (
         const userId = res.locals.user._id
 
         let page = Math.max(1, parseInt(req.query.page as string || '1', 10))
-        let limit = Math.min(
-            Math.max(1, parseInt(req.query.limit as string || '10', 10)),
-            MAX_LIMIT
-        )
+        let limit = parseInt(req.query.limit as string || '10', 10)
+        
+        // Нормализация лимита
+        limit = Math.min(Math.max(1, limit), MAX_LIMIT)
 
         const orders = await Order.find({ customer: userId })
             .sort({ createdAt: -1 })
@@ -82,19 +74,12 @@ export const getOrdersCurrentUser = async (
             .populate('products')
             .populate('customer', 'name email')
 
-        const result = orders.map(order => {
-            if (order.products && Array.isArray(order.products) && order.products.length > 10) {
-                order.products = order.products.slice(0, 10)
-            }
-            return order
-        })
-
         const totalOrders = await Order.countDocuments({ customer: userId })
 
         res.json({
-            orders: result,
+            orders,
             pagination: {
-                totalUsers: totalOrders,
+                totalOrders,
                 totalPages: Math.ceil(totalOrders / limit),
                 currentPage: page,
                 pageSize: limit,
@@ -105,7 +90,6 @@ export const getOrdersCurrentUser = async (
     }
 }
 
-// Остальные методы без изменений...
 export const getOrderByNumber = async (
     req: Request,
     res: Response,
@@ -218,7 +202,9 @@ export const deleteOrder = async (
     next: NextFunction
 ) => {
     try {
-        const deletedOrder = await Order.findByIdAndDelete(req.params.id).orFail(
+        const deletedOrder = await Order.findOneAndDelete({ 
+            orderNumber: req.params.orderNumber 
+        }).orFail(
             () => new NotFoundError('Заказ не найден')
         )
         res.json(deletedOrder)

@@ -15,10 +15,10 @@ export const getCustomers = async (
 ) => {
     try {
         let page = Math.max(1, parseInt(req.query.page as string || '1', 10))
-        let limit = Math.min(
-            Math.max(1, parseInt(req.query.limit as string || '10', 10)),
-            MAX_LIMIT
-        )
+        let limit = parseInt(req.query.limit as string || '10', 10)
+        
+        // Нормализация лимита
+        limit = Math.min(Math.max(1, limit), MAX_LIMIT)
 
         const search = req.query.search
         const filters: FilterQuery<IUser> = {}
@@ -42,10 +42,6 @@ export const getCustomers = async (
                     { path: 'customer', select: 'name email' }
                 ]
             })
-
-        const result = users.map(user => {
-            return user
-        })
 
         const totalUsers = await User.countDocuments(filters)
         const totalPages = Math.ceil(totalUsers / limit)

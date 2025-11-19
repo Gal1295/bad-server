@@ -16,9 +16,7 @@ export const uploadFile = async (
     try {
         const ext = path.extname(req.file.originalname)
         const fileName = crypto.randomBytes(16).toString('hex') + ext
-        const fileUrl = process.env.UPLOAD_PATH_TEMP
-            ? `/${process.env.UPLOAD_PATH_TEMP}/${fileName}`
-            : `/uploads/${fileName}`
+        const fileUrl = `/uploads/${fileName}`
 
         return res.status(constants.HTTP_STATUS_CREATED).json({
             fileName: fileUrl
