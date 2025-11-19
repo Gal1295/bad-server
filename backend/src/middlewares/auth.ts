@@ -15,10 +15,7 @@ const auth = async (req: Request, res: Response, next: NextFunction) => {
     const token = authHeader.split(' ')[1]
     const payload = jwt.verify(token, ACCESS_TOKEN.secret) as JwtPayload
 
-    const user = await UserModel.findOne(
-      { _id: new Types.ObjectId(payload.sub) },
-      { password: 0, salt: 0 }
-    )
+    const user = await UserModel.findById(payload.sub).select('-password')
 
     if (!user) {
       return next(new ForbiddenError('Доступ запрещён'))

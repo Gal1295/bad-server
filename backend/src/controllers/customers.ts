@@ -4,6 +4,8 @@ import BadRequestError from '../errors/bad-request-error'
 import NotFoundError from '../errors/not-found-error'
 import Order from '../models/order'
 import User, { IUser } from '../models/user'
+import escapeRegExp from '../utils/escapeRegExp'
+const MAX_LIMIT = 10
 
 export const getCustomers = async (
     req: Request,
@@ -11,28 +13,33 @@ export const getCustomers = async (
     next: NextFunction
 ) => {
     try {
+        let limitValue = Number(req.query.limit) || 10
+        if (Number.isNaN(limitValue) || limitValue <= 0) {
+            limitValue = 10
+        }
+
+        const limit = Math.min(limitValue, MAX_LIMIT)
+
+        let pageValue = Number(req.query.page) || 1
+        if (Number.isNaN(pageValue) || pageValue < 1) {
+            pageValue = 1
+        }
+        const page = pageValue
         const {
-            page: pageQuery = 1,
-            limit: limitQuery = 10,
             sortField = 'createdAt',
             sortOrder = 'desc',
             search,
         } = req.query
-
-        let pageNum = parseInt(pageQuery as string, 10)
-        if (isNaN(pageNum) || pageNum < 1) pageNum = 1
-
-        let limitNum = parseInt(limitQuery as string, 10)
-        if (isNaN(limitNum) || limitNum < 1) limitNum = 10
-        limitNum = Math.min(limitNum, 10)
-
         const filters: FilterQuery<Partial<IUser>> = {}
 
         if (search) {
+            const searchStr = String(search)
+            const safeSearch = escapeRegExp(searchStr)
+            const searchRegex = new RegExp(safeSearch, 'i')
             filters.$or = [
-                { email: { $regex: String(search), $options: 'i' } },
-                { name: { $regex: String(search), $options: 'i' } }
-            ];
+                { name: searchRegex },
+                { email: searchRegex }
+            ]
         }
 
         const sort: { [key: string]: any } = {}
@@ -42,8 +49,8 @@ export const getCustomers = async (
 
         const options = {
             sort,
-            skip: (pageNum - 1) * limitNum,
-            limit: limitNum,
+            skip: (page - 1) * limit,
+            limit,
         }
 
         const users = await User.find(filters, null, options).populate([
@@ -59,21 +66,22 @@ export const getCustomers = async (
         ])
 
         const totalUsers = await User.countDocuments(filters)
-        const totalPages = Math.ceil(totalUsers / limitNum)
+        const totalPages = Math.ceil(totalUsers / limit)
 
         res.status(200).json({
             customers: users,
             pagination: {
                 totalUsers,
                 totalPages,
-                currentPage: pageNum,
-                pageSize: limitNum,
+                currentPage: page,
+                pageSize: limit,
             },
         })
     } catch (error) {
         next(error)
     }
 }
+
 export const getCustomerById = async (
     req: Request,
     res: Response,
