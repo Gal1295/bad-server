@@ -19,7 +19,7 @@ export const getOrders = async (
         let limit = parseInt(req.query.limit as string || '10', 10)
         
         // Нормализация лимита
-        limit = Math.min(Math.max(1, limit), MAX_LIMIT)
+        limit = Math.min(Math.max(1, limit), 10)
 
         const filters: FilterQuery<Partial<IOrder>> = {}
         if (req.query.status && typeof req.query.status === 'string') {
@@ -65,7 +65,7 @@ export const getOrdersCurrentUser = async (
         let limit = parseInt(req.query.limit as string || '10', 10)
         
         // Нормализация лимита
-        limit = Math.min(Math.max(1, limit), MAX_LIMIT)
+        limit = Math.min(Math.max(1, limit), 10)
 
         const orders = await Order.find({ customer: userId })
             .sort({ createdAt: -1 })

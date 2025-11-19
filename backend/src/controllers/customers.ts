@@ -18,7 +18,7 @@ export const getCustomers = async (
         let limit = parseInt(req.query.limit as string || '10', 10)
         
         // Нормализация лимита
-        limit = Math.min(Math.max(1, limit), MAX_LIMIT)
+        limit = Math.min(Math.max(1, limit), 10)
 
         const search = req.query.search
         const filters: FilterQuery<IUser> = {}
