@@ -21,7 +21,7 @@ export const getCustomers = async (
         )
 
         const search = req.query.search
-        const filters: FilterQuery<any> = {}
+        const filters: FilterQuery<IUser> = {}
 
         if (search) {
             const escaped = escapeRegExp(String(search))
@@ -44,9 +44,6 @@ export const getCustomers = async (
             })
 
         const result = users.map(user => {
-            if (user.orders && user.orders.length > 10) {
-                user.orders = user.orders.slice(0, 10)
-            }
             return user
         })
 
@@ -54,7 +51,7 @@ export const getCustomers = async (
         const totalPages = Math.ceil(totalUsers / limit)
 
         res.json({
-            customers: result,
+            customers: users,
             pagination: {
                 totalUsers,
                 totalPages,

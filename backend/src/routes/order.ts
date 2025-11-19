@@ -8,8 +8,8 @@ import {
   updateOrder,
   deleteOrder,
 } from '../controllers/order'
-import { adminGuard } from '../middlewares/auth'
 import auth from '../middlewares/auth'
+import adminGuard from '../middlewares/admin-guard'
 
 const orderRouter = Router()
 
