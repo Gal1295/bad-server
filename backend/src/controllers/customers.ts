@@ -14,18 +14,15 @@ export const getCustomers = async (
     next: NextFunction
 ) => {
     try {
-        const pageNum = Math.max(1, parseInt(req.query.page as string || '1', 10))
-        let limitNum = parseInt(req.query.limit as string || '10', 10)
+        let page = Math.max(1, parseInt(req.query.page as string || '1', 10))
+        let limit = Math.min(
+            Math.max(1, parseInt(req.query.limit as string || '10', 10)),
+            MAX_LIMIT
+        )
+
         const search = req.query.search
-
-        if (isNaN(limitNum) || limitNum < 1) {
-            limitNum = 10
-        }
-        if (limitNum > MAX_LIMIT) {
-            return next(new BadRequestError('Лимит не может превышать 10'))
-        }
-
         const filters: FilterQuery<any> = {}
+
         if (search) {
             const escaped = escapeRegExp(String(search))
             const regex = new RegExp(escaped, 'i')
@@ -33,31 +30,29 @@ export const getCustomers = async (
         }
 
         const users = await User.find(filters)
-            .select('-password')
-            .skip((pageNum - 1) * limitNum)
-            .limit(limitNum)
+            .select('-password -tokens -roles')
+            .skip((page - 1) * limit)
+            .limit(limit)
             .sort({ createdAt: -1 })
-            .populate({
-                path: 'orders',
-                options: { limit: 10 }
-            })
+            .populate('orders')
             .populate({
                 path: 'lastOrder',
                 populate: [
-                    { path: 'products', options: { limit: 10 } },
-                    { path: 'customer', options: { limit: 1 } }
+                    { path: 'products' },
+                    { path: 'customer', select: 'name email' }
                 ]
             })
 
         const totalUsers = await User.countDocuments(filters)
+        const totalPages = Math.ceil(totalUsers / limit)
 
         res.json({
             customers: users,
             pagination: {
                 totalUsers,
-                totalPages: Math.ceil(totalUsers / limitNum),
-                currentPage: pageNum,
-                pageSize: limitNum,
+                totalPages,
+                currentPage: page,
+                pageSize: limit,
             },
         })
     } catch (error) {
@@ -76,11 +71,7 @@ export const getCustomerById = async (
             'lastOrder',
         ])
         if (!user) {
-            return next(
-                new NotFoundError(
-                    'Пользователь по заданному id отсутствует в базе'
-                )
-            )
+            return next(new NotFoundError('Пользователь не найден'))
         }
         res.status(200).json(user)
     } catch (error) {
@@ -99,12 +90,7 @@ export const updateCustomer = async (
             req.body,
             { new: true, runValidators: true }
         )
-            .orFail(
-                () =>
-                    new NotFoundError(
-                        'Пользователь по заданному id отсутствует в базе'
-                    )
-            )
+            .orFail(() => new NotFoundError('Пользователь не найден'))
             .populate(['orders', 'lastOrder'])
         res.status(200).json(updatedUser)
     } catch (error) {
@@ -119,10 +105,7 @@ export const deleteCustomer = async (
 ) => {
     try {
         const deletedUser = await User.findByIdAndDelete(req.params.id).orFail(
-            () =>
-                new NotFoundError(
-                    'Пользователь по заданному id отсутствует в базе'
-                )
+            () => new NotFoundError('Пользователь не найден')
         )
         res.status(200).json(deletedUser)
     } catch (error) {

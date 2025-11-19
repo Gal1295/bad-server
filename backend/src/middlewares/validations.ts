@@ -52,35 +52,24 @@ export const validateOrderBody = celebrate({
 // name и link - обязательные поля, name - от 2 до 30 символов, link - валидный url
 export const validateProductBody = celebrate({
     body: Joi.object().keys({
-        title: Joi.string().required().min(2).max(30).messages({
-            'string.min': 'Минимальная длина поля "name" - 2',
-            'string.max': 'Максимальная длина поля "name" - 30',
-            'string.empty': 'Поле "title" должно быть заполнено',
-        }),
+        title: Joi.string().required().min(2).max(30),
         image: Joi.object().keys({
             fileName: Joi.string().required(),
         }),
-        category: Joi.string().required().messages({
-            'string.empty': 'Поле "category" должно быть заполнено',
-        }),
-        description: Joi.string().required().messages({
-            'string.empty': 'Поле "description" должно быть заполнено',
-        }),
+        category: Joi.string().required(),
+        description: Joi.string().required(),
         price: Joi.number().allow(null),
     }),
 })
 
 export const validateProductUpdateBody = celebrate({
     body: Joi.object().keys({
-        title: Joi.string().min(2).max(30).messages({
-            'string.min': 'Минимальная длина поля "name" - 2',
-            'string.max': 'Максимальная длина поля "name" - 30',
-        }),
+        title: Joi.string().required().min(2).max(30),
         image: Joi.object().keys({
             fileName: Joi.string().required(),
         }),
-        category: Joi.string(),
-        description: Joi.string(),
+        category: Joi.string().required(),
+        description: Joi.string().required(),
         price: Joi.number().allow(null),
     }),
 })

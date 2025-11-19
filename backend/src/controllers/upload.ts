@@ -14,15 +14,14 @@ export const uploadFile = async (
     }
 
     try {
-        const fileExtension = path.extname(req.file.originalname)
-        const randomFileName = crypto.randomBytes(16).toString('hex') + fileExtension
-
+        const ext = path.extname(req.file.originalname)
+        const fileName = crypto.randomBytes(16).toString('hex') + ext
         const fileUrl = process.env.UPLOAD_PATH_TEMP
-            ? `/${process.env.UPLOAD_PATH_TEMP}/${randomFileName}`
-            : `/uploads/${randomFileName}`
+            ? `/${process.env.UPLOAD_PATH_TEMP}/${fileName}`
+            : `/uploads/${fileName}`
 
         return res.status(constants.HTTP_STATUS_CREATED).json({
-            fileName: fileUrl,
+            fileName: fileUrl
         })
     } catch (error) {
         next(error)
