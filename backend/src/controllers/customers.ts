@@ -37,11 +37,17 @@ export const getCustomers = async (
             .skip((pageNum - 1) * limitNum)
             .limit(limitNum)
             .sort({ createdAt: -1 })
-            .populate([
-                'orders',
-                { path: 'lastOrder', populate: { path: 'products' } },
-                { path: 'lastOrder', populate: { path: 'customer' } },
-            ])
+            .populate({
+                path: 'orders',
+                options: { limit: 10 }
+            })
+            .populate({
+                path: 'lastOrder',
+                populate: [
+                    { path: 'products', options: { limit: 10 } },
+                    { path: 'customer', options: { limit: 1 } }
+                ]
+            })
 
         const totalUsers = await User.countDocuments(filters)
 

@@ -45,7 +45,10 @@ export const getOrders = async (
             .sort(sort)
             .skip((pageNum - 1) * limitNum)
             .limit(limitNum)
-            .populate(['customer', 'products'])
+            .populate([
+                { path: 'customer', options: { limit: 1 } },
+                { path: 'products', options: { limit: 10 } }
+            ])
 
         const totalOrders = await Order.countDocuments(filters)
         const totalPages = Math.ceil(totalOrders / limitNum)
@@ -86,7 +89,10 @@ export const getOrdersCurrentUser = async (
             .sort({ createdAt: -1 })
             .skip((pageNum - 1) * limitNum)
             .limit(limitNum)
-            .populate(['products', 'customer'])
+            .populate([
+                { path: 'products', options: { limit: 10 } },
+                { path: 'customer', options: { limit: 1 } }
+            ])
 
         const totalOrders = await Order.countDocuments({ customer: userId })
 
