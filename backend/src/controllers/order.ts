@@ -32,39 +32,45 @@ export const getOrders = async (
             return next(new BadRequestError('Invalid query parameters'));
         }
 
+        const status = req.query.status as string | undefined;
+
         const filters: FilterQuery<any> = {}
-        if (req.query.status !== undefined) {
-            if (typeof req.query.status === 'string') {
-                filters.status = req.query.status
-            } else {
-                 console.log('Status query parameter is not a string:', req.query.status);
-            }
+        
+        if (status) {
+            filters.status = status
         }
 
-        let orders = await Order.find(filters)
-            .sort({ createdAt: -1 })
-            .skip((page - 1) * limit)
-            .limit(limit)
-            .populate('customer', 'name email')
-            .populate('products')
+        let query = Order.find(filters).sort({ createdAt: -1 }).populate('customer', 'name email').populate('products')
 
-        let totalOrders;
-        try {
-             totalOrders = await Order.countDocuments(filters)
-        } catch (countError) {
-            console.error('Error counting orders:', countError);
-            return next(new Error('Internal Server Error during counting orders'));
+        query = query.skip((page - 1) * limit).limit(limit)
+
+        const orders = await query
+
+        let result = orders;
+        const search = req.query.search as string | undefined;
+        if (search) {
+            const escapedSearch = sanitizeHtml(search, { allowedTags: [], allowedAttributes: {} });
+            const searchRegex = new RegExp(escapedSearch, 'i');
+            result = result.filter(order => {
+                const matchesProductTitle = order.products && order.products.some(
+                    (product: any) => product.title && product.title.match(searchRegex)
+                );
+                const matchesOrderNumber = order.orderNumber && order.orderNumber.toString().includes(search);
+                return matchesProductTitle || matchesOrderNumber;
+            });
         }
 
-        const result = orders.map(order => {
+        const processedResult = result.map(order => {
             if (order.products && Array.isArray(order.products) && order.products.length > 10) {
                 order.products = order.products.slice(0, 10)
             }
             return order
         })
 
+        const totalOrders = await Order.countDocuments(filters)
+
         const responsePayload = {
-            orders: result,
+            orders: processedResult,
             pagination: {
                 totalOrders,
                 totalPages: Math.ceil(totalOrders / limit),
@@ -72,6 +78,7 @@ export const getOrders = async (
                 pageSize: limit,
             },
         };
+
         try {
             JSON.stringify(responsePayload);
         } catch (serializeError) {

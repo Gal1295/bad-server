@@ -1,4 +1,3 @@
-// backend/src/middlewares/file.ts
 import { Request } from 'express'
 import multer, { FileFilterCallback } from 'multer'
 import { join, extname } from 'path'
@@ -7,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid'
 type DestinationCallback = (error: Error | null, destination: string) => void
 type FileNameCallback = (error: Error | null, filename: string) => void
 
-export const MIN_FILE_SIZE_BYTES = 1024; // Или 2048 как в работающем примере
+export const MIN_FILE_SIZE_BYTES = 1024;
 
 const allowedExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.svg']
 
@@ -28,7 +27,6 @@ const storage = multer.diskStorage({
         file: Express.Multer.File,
         cb: FileNameCallback
     ) => {
-        // Извлекаем расширение из originalname
         const ext = extname(file.originalname).toLowerCase()
         // Проверим, допустимо ли расширение. Если нет, всё равно генерируем безопасное имя.
         // Но если расширение отсутствует, можно сгенерировать его из mimetype.

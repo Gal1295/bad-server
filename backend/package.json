@@ -25,7 +25,7 @@
     "@types/sanitize-html": "^2.16.0",
     "@types/unique-slug": "^4.0.0",
     "@types/uuid": "^10.0.0",
-    "@types/validator": "^13.11.9",
+    "@types/validator": "^13.15.10",
     "@typescript-eslint/eslint-plugin": "^7.7.1",
     "@typescript-eslint/parser": "^7.7.1",
     "eslint": "^8.56.0",
@@ -57,6 +57,6 @@
     "sharp": "^0.33.4",
     "unique-slug": "^4.0.0",
     "uuid": "^13.0.0",
-    "validator": "^13.12.0"
+    "validator": "^13.15.23"
   }
 }
