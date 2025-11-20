@@ -14,11 +14,10 @@ export const getCustomers = async (
     next: NextFunction
 ) => {
     try {
-        let page = Math.max(1, parseInt(req.query.page as string || '1', 10))
-        let limit = parseInt(req.query.limit as string || '10', 10)
-        
-        // Нормализация лимита
-        limit = Math.min(Math.max(1, limit), 10)
+        let page = Math.max(1, parseInt((req.query.page as string) || '1', 10))
+        let limit = parseInt((req.query.limit as string) || '10', 10)
+        if (isNaN(limit) || limit < 1) limit = 10
+        limit = Math.min(limit, 10)
 
         const search = req.query.search
         const filters: FilterQuery<IUser> = {}
@@ -39,8 +38,8 @@ export const getCustomers = async (
                 path: 'lastOrder',
                 populate: [
                     { path: 'products' },
-                    { path: 'customer', select: 'name email' }
-                ]
+                    { path: 'customer', select: 'name email' },
+                ],
             })
 
         const totalUsers = await User.countDocuments(filters)
