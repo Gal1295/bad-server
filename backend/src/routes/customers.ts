@@ -5,8 +5,7 @@ import {
   updateCustomer,
   deleteCustomer,
 } from '../controllers/customers'
-import auth from '../middlewares/auth'
-import adminGuard from '../middlewares/admin-guard'
+import auth, { adminGuard } from '../middlewares/auth'
 
 const customerRouter = Router()
 
