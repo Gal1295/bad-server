@@ -22,7 +22,7 @@ export const getOrders = async (
         if (isNaN(limitInput) || !Number.isFinite(limitInput) || limitInput < 1) limitInput = 10;
 
         const page = Math.max(1, pageInput);
-        let limit = Math.min(limitInput, MAX_LIMIT);
+        let limit = Math.min(Math.max(1, limitInput), MAX_LIMIT);
 
         const unsafeKeys = Object.keys(req.query).filter(key =>
             key.startsWith('$') || key.includes('__proto__') || key.includes('constructor')
@@ -108,7 +108,7 @@ export const getOrdersCurrentUser = async (
         if (isNaN(limitInput) || limitInput < 1) limitInput = 10;
 
         const page = Math.max(1, pageInput);
-        let limit = Math.min(limitInput, MAX_LIMIT);
+        let limit = Math.min(Math.max(1, limitInput), MAX_LIMIT);
 
         const orders = await Order.find({ customer: userId })
             .sort({ createdAt: -1 })
