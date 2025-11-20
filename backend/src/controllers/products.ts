@@ -17,7 +17,7 @@ const getProducts = async (req: Request, res: Response, next: NextFunction) => {
         if (isNaN(pageNum) || pageNum < 1) pageNum = 1
         
         let limitNum = Number(limit)
-        if (isNaN(limitNum) || limitNum < 1) limitNum = 10
+        if (isNaN(limitNum) || limitNum < 1) limitNum = 5
         limitNum = Math.min(limitNum, 10)
         
         const options = {
@@ -50,9 +50,8 @@ const createProduct = async (
     try {
         const { description, category, price, title, image } = req.body
 
-        // Переносим картинку из временной папки
-        if (image) {
-            movingFile(
+        if (image && image.fileName) {
+            await movingFile(
                 image.fileName,
                 join(__dirname, `../public/${process.env.UPLOAD_PATH_TEMP}`),
                 join(__dirname, `../public/${process.env.UPLOAD_PATH}`)
@@ -80,7 +79,6 @@ const createProduct = async (
     }
 }
 
-// TODO: Добавить guard admin
 // PUT /product
 const updateProduct = async (
     req: Request,
@@ -91,9 +89,8 @@ const updateProduct = async (
         const { productId } = req.params
         const { image } = req.body
 
-        // Переносим картинку из временной папки
-        if (image) {
-            movingFile(
+        if (image && image.fileName) {
+            await movingFile(
                 image.fileName,
                 join(__dirname, `../public/${process.env.UPLOAD_PATH_TEMP}`),
                 join(__dirname, `../public/${process.env.UPLOAD_PATH}`)
@@ -128,7 +125,6 @@ const updateProduct = async (
     }
 }
 
-// TODO: Добавить guard admin
 // DELETE /product
 const deleteProduct = async (
     req: Request,

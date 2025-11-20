@@ -1,8 +1,10 @@
 import { existsSync, rename } from 'fs'
+import { promisify } from 'util'
 import { basename, join } from 'path'
 import BadRequestError from '../errors/bad-request-error'
 
-function movingFile(imagePath: string, from: string, to: string) {
+const renameAsync = promisify(rename);
+async function movingFile(imagePath: string, from: string, to: string) {
     const fileName = basename(imagePath)
     if (fileName.includes('..') || fileName.includes('/')) {
         throw new BadRequestError('Недопустимое имя файла')
@@ -11,14 +13,14 @@ function movingFile(imagePath: string, from: string, to: string) {
     const imagePathTemp = join(from, fileName)
     const imagePathPermanent = join(to, fileName)
     if (!existsSync(imagePathTemp)) {
-        throw new Error('Ошибка при сохранении файла')
+        throw new Error('Ошибка при сохранении файла: исходный файл не найден')
     }
 
-    rename(imagePathTemp, imagePathPermanent, (err) => {
-        if (err) {
-            throw new Error('Ошибка при сохранении файла')
-        }
-    })
+    try {
+        await renameAsync(imagePathTemp, imagePathPermanent)
+    } catch (err) {
+        throw new Error('Ошибка при сохранении файла: ' + (err instanceof Error ? err.message : 'неизвестная ошибка'))
+    }
 }
 
 export default movingFile

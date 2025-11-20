@@ -20,7 +20,11 @@ export const uploadFile = async (
   }
 
   try {
-    const ext = path.extname(file.originalname).toLowerCase()
+    const originalName = file.originalname;
+    if (originalName.includes('..') || originalName.includes('/')) {
+        return next(new BadRequestError('Недопустимое имя файла'));
+    }
+    const ext = path.extname(originalName).toLowerCase()
 
     const randomName = crypto.randomBytes(16).toString('hex')
     const newFileName = randomName + ext
