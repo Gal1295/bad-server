@@ -68,7 +68,7 @@ export const getOrdersCurrentUser = async (
         let limit = parseInt(req.query.limit as string || '10', 10)
 
         if (isNaN(limit) || limit < 1) limit = 10
-        limit = Math.min(limit, MAX_LIMIT)
+        limit = Math.min(limit, MAX_LIMIT) // Применяем максимальный лимит
 
         const orders = await Order.find({ customer: userId })
             .sort({ createdAt: -1 })
