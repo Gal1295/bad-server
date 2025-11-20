@@ -18,43 +18,70 @@ export const getOrders = async (
         let pageInput = parseInt(req.query.page as string || '1', 10);
         let limitInput = parseInt(req.query.limit as string || '10', 10);
 
-        if (isNaN(pageInput) || pageInput < 1) pageInput = 1;
-        if (isNaN(limitInput) || limitInput < 1) limitInput = 10;
+        if (isNaN(pageInput) || !Number.isFinite(pageInput) || pageInput < 1) pageInput = 1;
+        if (isNaN(limitInput) || !Number.isFinite(limitInput) || limitInput < 1) limitInput = 10;
 
         const page = Math.max(1, pageInput);
         let limit = Math.min(limitInput, MAX_LIMIT);
 
-        const filters: FilterQuery<any> = {}
-        if (req.query.status && typeof req.query.status === 'string') {
-            filters.status = req.query.status
+        const unsafeKeys = Object.keys(req.query).filter(key =>
+            key.startsWith('$') || key.includes('__proto__') || key.includes('constructor')
+        );
+        if (unsafeKeys.length > 0) {
+            console.error('Potentially unsafe query keys detected:', unsafeKeys);
+            return next(new BadRequestError('Invalid query parameters'));
         }
 
-        const orders = await Order.find(filters)
+        const filters: FilterQuery<any> = {}
+        if (req.query.status !== undefined) {
+            if (typeof req.query.status === 'string') {
+                filters.status = req.query.status
+            } else {
+                 console.log('Status query parameter is not a string:', req.query.status);
+            }
+        }
+
+        let orders = await Order.find(filters)
             .sort({ createdAt: -1 })
             .skip((page - 1) * limit)
             .limit(limit)
             .populate('customer', 'name email')
             .populate('products')
 
-            const result = orders.map(order => {
-                if (order.products && Array.isArray(order.products) && order.products.length > 10) {
-                    order.products = order.products.slice(0, 10)
-                }
-                return order
-            })
+        let totalOrders;
+        try {
+             totalOrders = await Order.countDocuments(filters)
+        } catch (countError) {
+            console.error('Error counting orders:', countError);
+            return next(new Error('Internal Server Error during counting orders'));
+        }
 
-        const totalOrders = await Order.countDocuments(filters)
+        const result = orders.map(order => {
+            if (order.products && Array.isArray(order.products) && order.products.length > 10) {
+                order.products = order.products.slice(0, 10)
+            }
+            return order
+        })
 
-        res.status(200).json({
+        const responsePayload = {
             orders: result,
             pagination: {
                 totalOrders,
                 totalPages: Math.ceil(totalOrders / limit),
                 currentPage: page,
-                pageSize: limit, // Возвращаем применённый лимит
+                pageSize: limit,
             },
-        })
+        };
+        try {
+            JSON.stringify(responsePayload);
+        } catch (serializeError) {
+            console.error('Error serializing response:', serializeError);
+            return next(new Error('Internal Server Error during response serialization'));
+        }
+
+        res.status(200).json(responsePayload)
     } catch (error) {
+        console.error('Error in getOrders:', error); 
         next(error)
     }
 }
