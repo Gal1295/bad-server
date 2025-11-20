@@ -15,11 +15,14 @@ export const getOrders = async (
     next: NextFunction
 ) => {
     try {
-        let page = Math.max(1, parseInt(req.query.page as string || '1', 10))
-        let limit = parseInt(req.query.limit as string || '10', 10)
+        let pageInput = parseInt(req.query.page as string || '1', 10);
+        let limitInput = parseInt(req.query.limit as string || '10', 10);
 
-        if (isNaN(limit) || limit < 1) limit = 10
-        limit = Math.min(limit, MAX_LIMIT)
+        if (isNaN(pageInput) || pageInput < 1) pageInput = 1;
+        if (isNaN(limitInput) || limitInput < 1) limitInput = 10;
+
+        const page = Math.max(1, pageInput);
+        let limit = Math.min(limitInput, MAX_LIMIT);
 
         const filters: FilterQuery<any> = {}
         if (req.query.status && typeof req.query.status === 'string') {
@@ -48,7 +51,7 @@ export const getOrders = async (
                 totalOrders,
                 totalPages: Math.ceil(totalOrders / limit),
                 currentPage: page,
-                pageSize: limit,
+                pageSize: limit, // Возвращаем применённый лимит
             },
         })
     } catch (error) {
@@ -64,11 +67,14 @@ export const getOrdersCurrentUser = async (
     try {
         const userId = res.locals.user._id
 
-        let page = Math.max(1, parseInt(req.query.page as string || '1', 10))
-        let limit = parseInt(req.query.limit as string || '10', 10)
+        let pageInput = parseInt(req.query.page as string || '1', 10);
+        let limitInput = parseInt(req.query.limit as string || '10', 10);
 
-        if (isNaN(limit) || limit < 1) limit = 10
-        limit = Math.min(limit, MAX_LIMIT) // Применяем максимальный лимит
+        if (isNaN(pageInput) || pageInput < 1) pageInput = 1;
+        if (isNaN(limitInput) || limitInput < 1) limitInput = 10;
+
+        const page = Math.max(1, pageInput);
+        let limit = Math.min(limitInput, MAX_LIMIT);
 
         const orders = await Order.find({ customer: userId })
             .sort({ createdAt: -1 })
