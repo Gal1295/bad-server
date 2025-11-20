@@ -33,12 +33,12 @@ export const getOrders = async (
             .populate('customer', 'name email')
             .populate('products')
 
-        const result = orders.map(order => {
-            if (order.products && Array.isArray(order.products) && order.products.length > 10) {
-                order.products = order.products.slice(0, 10)
-            }
-            return order
-        })
+            const result = orders.map(order => {
+                if (order.products && Array.isArray(order.products) && order.products.length > 10) {
+                    order.products = order.products.slice(0, 10)
+                }
+                return order
+            })
 
         const totalOrders = await Order.countDocuments(filters)
 
@@ -77,12 +77,12 @@ export const getOrdersCurrentUser = async (
             .populate('products')
             .populate('customer', 'name email')
 
-        const result = orders.map(order => {
-            if (order.products && Array.isArray(order.products) && order.products.length > 10) {
-                order.products = order.products.slice(0, 10)
-            }
-            return order
-        })
+            const result = orders.map(order => {
+                if (order.products && Array.isArray(order.products) && order.products.length > 10) {
+                    order.products = order.products.slice(0, 10)
+                }
+                return order
+            })
 
         const totalOrders = await Order.countDocuments({ customer: userId })
 

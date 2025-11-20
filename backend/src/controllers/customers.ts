@@ -17,7 +17,7 @@ export const getCustomers = async (
         let page = Math.max(1, parseInt((req.query.page as string) || '1', 10))
         let limit = parseInt((req.query.limit as string) || '10', 10)
         if (isNaN(limit) || limit < 1) limit = 10
-        limit = Math.min(limit, 10)
+        limit = Math.min(limit, MAX_LIMIT)
 
         const search = req.query.search
         const filters: FilterQuery<IUser> = {}
@@ -42,11 +42,20 @@ export const getCustomers = async (
                 ],
             })
 
+        // ✅ Ручное ограничение populate — только для массива `orders`
+        const result = users.map(user => {
+            if (user.orders && user.orders.length > 10) {
+                user.orders = user.orders.slice(0, 10)
+            }
+            // ❌ Убрано: обращение к `lastOrder.products` — это `ObjectId`
+            return user
+        })
+
         const totalUsers = await User.countDocuments(filters)
         const totalPages = Math.ceil(totalUsers / limit)
 
         res.json({
-            customers: users,
+            customers: result,
             pagination: {
                 totalUsers,
                 totalPages,
