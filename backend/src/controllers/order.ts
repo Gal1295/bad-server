@@ -9,42 +9,65 @@ import User from '../models/user'
 
 const MAX_LIMIT = 10
 
+const validateLimit = (rawLimit: string | undefined): number => {
+    if (rawLimit === undefined) {
+        return 10;
+    }
+    if (typeof rawLimit !== 'string') {
+        throw new BadRequestError('Параметр limit должен быть строкой');
+    }
+    const parsed = parseInt(rawLimit, 10);
+    if (isNaN(parsed)) {
+        throw new BadRequestError('Параметр limit должен быть числом');
+    }
+    if (parsed < 1) {
+        throw new BadRequestError('Параметр limit должен быть больше 0');
+    }
+    return Math.min(parsed, MAX_LIMIT);
+};
+
+const validatePage = (rawPage: string | undefined): number => {
+    if (rawPage === undefined) {
+        return 1;
+    }
+    if (typeof rawPage !== 'string') {
+        throw new BadRequestError('Параметр page должен быть строкой');
+    }
+    const parsed = parseInt(rawPage, 10);
+    if (isNaN(parsed)) {
+        throw new BadRequestError('Параметр page должен быть числом');
+    }
+    return Math.max(1, parsed);
+};
+
 export const getOrders = async (
     req: Request,
     res: Response,
     next: NextFunction
 ) => {
     try {
-        let pageInput = parseInt(req.query.page as string || '1', 10);
-        let limitInput = parseInt(req.query.limit as string || '10', 10);
-
-        if (isNaN(pageInput) || !Number.isFinite(pageInput) || pageInput < 1) pageInput = 1;
-        if (isNaN(limitInput) || !Number.isFinite(limitInput) || limitInput < 1) limitInput = 10;
-
-        const page = Math.max(1, pageInput);
-        let limit = Math.min(Math.max(1, limitInput), MAX_LIMIT);
+        const page = validatePage(req.query.page as string | undefined);
+        const limit = validateLimit(req.query.limit as string | undefined);
 
         const unsafeKeys = Object.keys(req.query).filter(key =>
             key.startsWith('$') || key.includes('__proto__') || key.includes('constructor')
         );
         if (unsafeKeys.length > 0) {
-            console.error('Potentially unsafe query keys detected:', unsafeKeys);
             return next(new BadRequestError('Invalid query parameters'));
         }
 
         const status = req.query.status as string | undefined;
-
-        const filters: FilterQuery<any> = {}
-        
+        const filters: FilterQuery<any> = {};
         if (status) {
-            filters.status = status
+            filters.status = status;
         }
 
-        let query = Order.find(filters).sort({ createdAt: -1 }).populate('customer', 'name email').populate('products')
-
-        query = query.skip((page - 1) * limit).limit(limit)
-
-        const orders = await query
+        const orders = await Order.find(filters)
+            .sort({ createdAt: -1 })
+            .skip((page - 1) * limit)
+            .limit(limit)
+            .populate('customer', 'name email')
+            .populate('products');
 
         let result = orders;
         const search = req.query.search as string | undefined;
@@ -52,24 +75,24 @@ export const getOrders = async (
             const escapedSearch = sanitizeHtml(search, { allowedTags: [], allowedAttributes: {} });
             const searchRegex = new RegExp(escapedSearch, 'i');
             result = result.filter(order => {
-                const matchesProductTitle = order.products && order.products.some(
+                const matchesProductTitle = order.products?.some(
                     (product: any) => product.title && product.title.match(searchRegex)
                 );
-                const matchesOrderNumber = order.orderNumber && order.orderNumber.toString().includes(search);
+                const matchesOrderNumber = order.orderNumber?.toString().includes(search);
                 return matchesProductTitle || matchesOrderNumber;
             });
         }
 
         const processedResult = result.map(order => {
             if (order.products && Array.isArray(order.products) && order.products.length > 10) {
-                order.products = order.products.slice(0, 10)
+                order.products = order.products.slice(0, 10);
             }
-            return order
-        })
+            return order;
+        });
 
-        const totalOrders = await Order.countDocuments(filters)
+        const totalOrders = await Order.countDocuments(filters);
 
-        const responsePayload = {
+        res.status(200).json({
             orders: processedResult,
             pagination: {
                 totalOrders,
@@ -77,21 +100,11 @@ export const getOrders = async (
                 currentPage: page,
                 pageSize: limit,
             },
-        };
-
-        try {
-            JSON.stringify(responsePayload);
-        } catch (serializeError) {
-            console.error('Error serializing response:', serializeError);
-            return next(new Error('Internal Server Error during response serialization'));
-        }
-
-        res.status(200).json(responsePayload)
+        });
     } catch (error) {
-        console.error('Error in getOrders:', error); 
-        next(error)
+        next(error);
     }
-}
+};
 
 export const getOrdersCurrentUser = async (
     req: Request,
@@ -99,32 +112,25 @@ export const getOrdersCurrentUser = async (
     next: NextFunction
 ) => {
     try {
-        const userId = res.locals.user._id
-
-        let pageInput = parseInt(req.query.page as string || '1', 10);
-        let limitInput = parseInt(req.query.limit as string || '10', 10);
-
-        if (isNaN(pageInput) || pageInput < 1) pageInput = 1;
-        if (isNaN(limitInput) || limitInput < 1) limitInput = 10;
-
-        const page = Math.max(1, pageInput);
-        let limit = Math.min(Math.max(1, limitInput), MAX_LIMIT);
+        const userId = res.locals.user._id;
+        const page = validatePage(req.query.page as string | undefined);
+        const limit = validateLimit(req.query.limit as string | undefined);
 
         const orders = await Order.find({ customer: userId })
             .sort({ createdAt: -1 })
             .skip((page - 1) * limit)
             .limit(limit)
             .populate('products')
-            .populate('customer', 'name email')
+            .populate('customer', 'name email');
 
-            const result = orders.map(order => {
-                if (order.products && Array.isArray(order.products) && order.products.length > 10) {
-                    order.products = order.products.slice(0, 10)
-                }
-                return order
-            })
+        const result = orders.map(order => {
+            if (order.products && Array.isArray(order.products) && order.products.length > 10) {
+                order.products = order.products.slice(0, 10);
+            }
+            return order;
+        });
 
-        const totalOrders = await Order.countDocuments({ customer: userId })
+        const totalOrders = await Order.countDocuments({ customer: userId });
 
         res.json({
             orders: result,
@@ -134,11 +140,11 @@ export const getOrdersCurrentUser = async (
                 currentPage: page,
                 pageSize: limit,
             },
-        })
+        });
     } catch (error) {
-        next(error)
+        next(error);
     }
-}
+};
 
 export const getOrderByNumber = async (
     req: Request,
