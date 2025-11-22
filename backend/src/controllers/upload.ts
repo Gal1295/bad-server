@@ -20,12 +20,15 @@ export const uploadFile = async (
   }
 
   try {
-    const originalName = file.originalname;
-    if (originalName.includes('..') || originalName.includes('/')) {
-        return next(new BadRequestError('Недопустимое имя файла'));
+    const mimeToExt: { [key: string]: string } = {
+        'image/png': '.png',
+        'image/jpg': '.jpg',
+        'image/jpeg': '.jpeg',
+        'image/gif': '.gif',
+        'image/svg+xml': '.svg',
     }
-    const ext = path.extname(originalName).toLowerCase()
-
+    
+    const ext = mimeToExt[file.mimetype] || '.bin'
     const randomName = crypto.randomBytes(16).toString('hex')
     const newFileName = randomName + ext
 

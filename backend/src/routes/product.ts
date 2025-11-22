@@ -14,7 +14,7 @@ import {
 
 const productRouter = Router()
 
-productRouter.get('/', getProducts)
+productRouter.get('/', auth, getProducts)
 productRouter.post(
     '/',
     auth,
