@@ -7,7 +7,9 @@ import UnauthorizedError from '../errors/unauthorized-error'
 import UserModel from '../models/user'
 
 const auth = async (req: Request, res: Response, next: NextFunction) => {
-  const authHeader = req.header('Authorization')
+    console.log('🔐 AUTH MIDDLEWARE - Path:', req.path);
+    console.log('🔐 Authorization header:', req.headers.authorization);
+    const authHeader = req.header('Authorization')
   if (!authHeader?.startsWith('Bearer ')) {
     return next(new UnauthorizedError('Необходима авторизация'))
   }
@@ -37,6 +39,7 @@ export const adminGuard = (req: Request, res: Response, next: NextFunction) => {
   if (!res.locals.user || !res.locals.user.roles?.includes('admin')) {
     return next(new ForbiddenError('Доступ запрещён'))
   }
+  console.log('🔐 Auth result:', res.locals.user ? '✅ authenticated' : '❌ not authenticated');
   next()
 }
 

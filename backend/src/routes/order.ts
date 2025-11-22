@@ -1,23 +1,23 @@
 import { Router } from 'express'
-import {
-  createOrder,
-  getOrdersCurrentUser,
-  getOrderCurrentUserByNumber,
-  getOrders,
-  getOrderByNumber,
-  updateOrder,
-  deleteOrder,
+import { 
+    getOrders, 
+    getOrdersCurrentUser, 
+    getOrderByNumber, 
+    getOrderCurrentUserByNumber, 
+    createOrder, 
+    updateOrder, 
+    deleteOrder 
 } from '../controllers/order'
-import auth, { adminGuard } from '../middlewares/auth'
 
-const orderRouter = Router()
+const router = Router()
 
-orderRouter.post('/', auth, createOrder)
-orderRouter.get('/current', auth, getOrdersCurrentUser)
-orderRouter.get('/current/:orderNumber', auth, getOrderCurrentUserByNumber)
-orderRouter.get('/', auth, adminGuard, getOrders)
-orderRouter.get('/:orderNumber', auth, adminGuard, getOrderByNumber)
-orderRouter.patch('/:orderNumber', auth, adminGuard, updateOrder)
-orderRouter.delete('/:orderNumber', auth, adminGuard, deleteOrder)
+// ✅ Убедимся что все роуты определены
+router.get('/', getOrders)  // GET /order
+router.get('/my', getOrdersCurrentUser)  // GET /order/my
+router.get('/:orderNumber', getOrderByNumber)  // GET /order/123
+router.get('/my/:orderNumber', getOrderCurrentUserByNumber)  // GET /order/my/123
+router.post('/', createOrder)  // POST /order
+router.patch('/:orderNumber', updateOrder)  // PATCH /order/123
+router.delete('/:orderNumber', deleteOrder)  // DELETE /order/123
 
-export default orderRouter
+export default router

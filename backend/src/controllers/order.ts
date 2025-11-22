@@ -15,11 +15,19 @@ export const getOrders = async (
     next: NextFunction
 ) => {
     try {
+        console.log('=== GET ORDERS CALLED ===');
+        console.log('URL:', req.url);
+        console.log('Method:', req.method);
+        console.log('Query params:', req.query);
+        console.log('Headers authorization:', req.headers.authorization ? 'present' : 'missing');
+        console.log('User from auth:', res.locals.user ? 'authenticated' : 'not authenticated');
+        
         let page = 1;
         const rawPage = req.query.page as string | undefined;
         if (rawPage !== undefined) {
             const parsedPage = parseInt(rawPage, 10);
             if (isNaN(parsedPage)) {
+                console.log('❌ Page parameter is not a number');
                 return next(new BadRequestError('Параметр page должен быть числом'));
             }
             page = Math.max(1, parsedPage);
@@ -27,16 +35,23 @@ export const getOrders = async (
 
         let limit = 10;
         const rawLimit = req.query.limit as string | undefined;
+        console.log('📋 Raw limit from query:', rawLimit);
+        
         if (rawLimit !== undefined) {
             const parsedLimit = parseInt(rawLimit, 10);
             if (isNaN(parsedLimit)) {
+                console.log('❌ Limit parameter is not a number');
                 return next(new BadRequestError('Параметр limit должен быть числом'));
             }
             if (parsedLimit < 1) {
+                console.log('❌ Limit parameter is less than 1');
                 return next(new BadRequestError('Параметр limit должен быть больше 0'));
             }
             limit = Math.min(parsedLimit, MAX_LIMIT);
+            console.log('✅ Final limit after normalization:', limit);
         }
+
+        console.log('📊 Final page:', page, 'Final limit:', limit);
 
         const unsafeKeys = Object.keys(req.query).filter(key =>
             key.startsWith('$') || key.includes('__proto__') || key.includes('constructor')
@@ -81,6 +96,7 @@ export const getOrders = async (
 
         const totalOrders = await Order.countDocuments(filters);
 
+        console.log('✅ Sending successful response');
         res.status(200).json({
             orders: processedResult,
             pagination: {
@@ -91,6 +107,7 @@ export const getOrders = async (
             },
         });
     } catch (error) {
+        console.error('❌ Error in getOrders:', error);
         next(error);
     }
 };
@@ -276,4 +293,14 @@ export const deleteOrder = async (
     } catch (error) {
         next(error)
     }
+}
+
+export default {
+    getOrders,
+    getOrdersCurrentUser,
+    getOrderByNumber,
+    getOrderCurrentUserByNumber,
+    createOrder,
+    updateOrder,
+    deleteOrder
 }
