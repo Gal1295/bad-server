@@ -18,9 +18,6 @@ export const getOrders = async (
         let page = 1;
         const rawPage = req.query.page as string | undefined;
         if (rawPage !== undefined) {
-            if (typeof rawPage !== 'string') {
-                return next(new BadRequestError('Параметр page должен быть строкой'));
-            }
             const parsedPage = parseInt(rawPage, 10);
             if (isNaN(parsedPage)) {
                 return next(new BadRequestError('Параметр page должен быть числом'));
@@ -31,9 +28,6 @@ export const getOrders = async (
         let limit = 10;
         const rawLimit = req.query.limit as string | undefined;
         if (rawLimit !== undefined) {
-            if (typeof rawLimit !== 'string') {
-                return next(new BadRequestError('Параметр limit должен быть строкой'));
-            }
             const parsedLimit = parseInt(rawLimit, 10);
             if (isNaN(parsedLimit)) {
                 return next(new BadRequestError('Параметр limit должен быть числом'));
@@ -111,9 +105,6 @@ export const getOrdersCurrentUser = async (
         let page = 1;
         const rawPage = req.query.page as string | undefined;
         if (rawPage !== undefined) {
-            if (typeof rawPage !== 'string') {
-                return next(new BadRequestError('Параметр page должен быть строкой'));
-            }
             const parsedPage = parseInt(rawPage, 10);
             if (isNaN(parsedPage)) {
                 return next(new BadRequestError('Параметр page должен быть числом'));
@@ -124,9 +115,6 @@ export const getOrdersCurrentUser = async (
         let limit = 10;
         const rawLimit = req.query.limit as string | undefined;
         if (rawLimit !== undefined) {
-            if (typeof rawLimit !== 'string') {
-                return next(new BadRequestError('Параметр limit должен быть строкой'));
-            }
             const parsedLimit = parseInt(rawLimit, 10);
             if (isNaN(parsedLimit)) {
                 return next(new BadRequestError('Параметр limit должен быть числом'));
