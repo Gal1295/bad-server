@@ -9,45 +9,40 @@ import User from '../models/user'
 
 const MAX_LIMIT = 10
 
-const validateLimit = (rawLimit: string | undefined): number => {
-    if (rawLimit === undefined) {
-        return 10;
-    }
-    if (typeof rawLimit !== 'string') {
-        throw new BadRequestError('Параметр limit должен быть строкой');
-    }
-    const parsed = parseInt(rawLimit, 10);
-    if (isNaN(parsed)) {
-        throw new BadRequestError('Параметр limit должен быть числом');
-    }
-    if (parsed < 1) {
-        throw new BadRequestError('Параметр limit должен быть больше 0');
-    }
-    return Math.min(parsed, MAX_LIMIT);
-};
-
-const validatePage = (rawPage: string | undefined): number => {
-    if (rawPage === undefined) {
-        return 1;
-    }
-    if (typeof rawPage !== 'string') {
-        throw new BadRequestError('Параметр page должен быть строкой');
-    }
-    const parsed = parseInt(rawPage, 10);
-    if (isNaN(parsed)) {
-        throw new BadRequestError('Параметр page должен быть числом');
-    }
-    return Math.max(1, parsed);
-};
-
 export const getOrders = async (
     req: Request,
     res: Response,
     next: NextFunction
 ) => {
     try {
-        const page = validatePage(req.query.page as string | undefined);
-        const limit = validateLimit(req.query.limit as string | undefined);
+        let page = 1;
+        const rawPage = req.query.page as string | undefined;
+        if (rawPage !== undefined) {
+            if (typeof rawPage !== 'string') {
+                return next(new BadRequestError('Параметр page должен быть строкой'));
+            }
+            const parsedPage = parseInt(rawPage, 10);
+            if (isNaN(parsedPage)) {
+                return next(new BadRequestError('Параметр page должен быть числом'));
+            }
+            page = Math.max(1, parsedPage);
+        }
+
+        let limit = 10;
+        const rawLimit = req.query.limit as string | undefined;
+        if (rawLimit !== undefined) {
+            if (typeof rawLimit !== 'string') {
+                return next(new BadRequestError('Параметр limit должен быть строкой'));
+            }
+            const parsedLimit = parseInt(rawLimit, 10);
+            if (isNaN(parsedLimit)) {
+                return next(new BadRequestError('Параметр limit должен быть числом'));
+            }
+            if (parsedLimit < 1) {
+                return next(new BadRequestError('Параметр limit должен быть больше 0'));
+            }
+            limit = Math.min(parsedLimit, MAX_LIMIT);
+        }
 
         const unsafeKeys = Object.keys(req.query).filter(key =>
             key.startsWith('$') || key.includes('__proto__') || key.includes('constructor')
@@ -113,8 +108,34 @@ export const getOrdersCurrentUser = async (
 ) => {
     try {
         const userId = res.locals.user._id;
-        const page = validatePage(req.query.page as string | undefined);
-        const limit = validateLimit(req.query.limit as string | undefined);
+        let page = 1;
+        const rawPage = req.query.page as string | undefined;
+        if (rawPage !== undefined) {
+            if (typeof rawPage !== 'string') {
+                return next(new BadRequestError('Параметр page должен быть строкой'));
+            }
+            const parsedPage = parseInt(rawPage, 10);
+            if (isNaN(parsedPage)) {
+                return next(new BadRequestError('Параметр page должен быть числом'));
+            }
+            page = Math.max(1, parsedPage);
+        }
+
+        let limit = 10;
+        const rawLimit = req.query.limit as string | undefined;
+        if (rawLimit !== undefined) {
+            if (typeof rawLimit !== 'string') {
+                return next(new BadRequestError('Параметр limit должен быть строкой'));
+            }
+            const parsedLimit = parseInt(rawLimit, 10);
+            if (isNaN(parsedLimit)) {
+                return next(new BadRequestError('Параметр limit должен быть числом'));
+            }
+            if (parsedLimit < 1) {
+                return next(new BadRequestError('Параметр limit должен быть больше 0'));
+            }
+            limit = Math.min(parsedLimit, MAX_LIMIT);
+        }
 
         const orders = await Order.find({ customer: userId })
             .sort({ createdAt: -1 })
