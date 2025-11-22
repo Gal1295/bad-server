@@ -8,7 +8,6 @@ import NotFoundError from '../errors/not-found-error'
 import Product from '../models/product'
 import movingFile from '../utils/movingFile'
 
-const MAX_LIMIT = 10
 // GET /product
 const getProducts = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -19,7 +18,7 @@ const getProducts = async (req: Request, res: Response, next: NextFunction) => {
         
         let limitNum = Number(limit)
         if (isNaN(limitNum) || limitNum < 1) limitNum = 5
-        limitNum = Math.min(limitNum, MAX_LIMIT)
+        limitNum = Math.min(limitNum, 10)
         
         const options = {
             skip: (pageNum - 1) * limitNum,
@@ -28,10 +27,6 @@ const getProducts = async (req: Request, res: Response, next: NextFunction) => {
         const products = await Product.find({}, null, options)
         const totalProducts = await Product.countDocuments({})
         const totalPages = Math.ceil(totalProducts / limitNum)
-        if (limitNum > MAX_LIMIT) {
-            return next(new BadRequestError(`pageSize не должен превышать ${MAX_LIMIT}`))
-        }
-        
         return res.send({
             items: products,
             pagination: {
