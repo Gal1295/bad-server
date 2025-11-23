@@ -30,9 +30,11 @@ const storage = multer.diskStorage({
         _file: Express.Multer.File,
         cb: DestinationCallback
     ) => {
+        // ✅ Используем существующую папку images вместо temp
         const uploadPath = process.env.UPLOAD_PATH_TEMP
             ? join(__dirname, `../public/${process.env.UPLOAD_PATH_TEMP}`)
-            : join(__dirname, '../public/uploads')
+            : join(__dirname, '../public/images')  // ✅ Меняем uploads на images
+        console.log('📁 Multer destination:', uploadPath);
         cb(null, uploadPath)
     },
 
@@ -43,6 +45,7 @@ const storage = multer.diskStorage({
     ) => {
         const fileExtension = mimeToExt[file.mimetype] || '.bin'
         const uniqueFileName = uuidv4() + fileExtension
+        console.log('📄 Multer filename:', uniqueFileName);
         cb(null, uniqueFileName)
     },
 })

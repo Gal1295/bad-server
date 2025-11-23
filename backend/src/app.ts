@@ -15,7 +15,7 @@ const { PORT = '3000' } = process.env
 const app = express()
 
 console.log('🚀 Backend application starting...');
-
+app.set('trust proxy', 1)
 // ✅ Rate limiting
 app.use(
     rateLimit({

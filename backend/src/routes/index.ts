@@ -35,7 +35,7 @@ router.get('/health', (req, res) => {
 // Основные роуты - ВЕРНЕМ ОРИГИНАЛЬНЫЕ ПУТИ
 router.use('/auth', authRouter)
 router.use('/product', productRouter)
-router.use('/order', auth, orderRouter)  // ✅ ОРИГИНАЛЬНЫЙ ПУТЬ /order
+router.use('/orders', auth, orderRouter)  // ✅ ОРИГИНАЛЬНЫЙ ПУТЬ /order
 router.use('/customers', auth, customerRouter)
 router.use('/upload', auth, uploadRouter)
 
