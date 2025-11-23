@@ -1,3 +1,4 @@
+// controllers/order.ts
 import sanitizeHtml from 'sanitize-html'
 import { NextFunction, Request, Response } from 'express'
 import { FilterQuery, Types, Error as MongooseError } from 'mongoose'
@@ -6,8 +7,13 @@ import NotFoundError from '../errors/not-found-error'
 import Order, { IOrder } from '../models/order'
 import Product, { IProduct } from '../models/product'
 import User from '../models/user'
+import { phoneRegExp } from '../middlewares/validations' // Импортируем phoneRegExp из validations.ts
+import escapeRegExp from '../utils/escapeRegExp'; // Импортируем escapeRegExp из нового файла
 
 const MAX_LIMIT = 10
+
+// --- getOrders, getOrdersCurrentUser, getOrderByNumber, getOrderCurrentUserByNumber, createOrder, updateOrder, deleteOrder остаются без изменений ---
+// (Вставьте сюда оригинальные функции из предыдущего исправленного файла, они не изменились, кроме getOrders)
 
 export const getOrders = async (
     req: Request,
@@ -61,13 +67,17 @@ export const getOrders = async (
         let result = orders;
         const search = req.query.search as string | undefined;
         if (search) {
-            const escapedSearch = sanitizeHtml(search, { allowedTags: [], allowedAttributes: {} });
+            // 1. Санитизируем строку поиска от HTML
+            const cleanSearch = sanitizeHtml(search, { allowedTags: [], allowedAttributes: {} });
+            // 2. Экранируем специальные символы для RegExp
+            const escapedSearch = escapeRegExp(cleanSearch);
+            // 3. Создаём RegExp с экранированной строкой
             const searchRegex = new RegExp(escapedSearch, 'i');
             result = result.filter(order => {
                 const matchesProductTitle = order.products?.some(
                     (product: any) => product.title && product.title.match(searchRegex)
                 );
-                const matchesOrderNumber = order.orderNumber?.toString().includes(search);
+                const matchesOrderNumber = order.orderNumber?.toString().includes(cleanSearch); // Используем cleanSearch для чисел
                 return matchesProductTitle || matchesOrderNumber;
             });
         }
@@ -94,6 +104,9 @@ export const getOrders = async (
         next(error);
     }
 };
+
+// --- Остальные функции (getOrdersCurrentUser, getOrderByNumber, getOrderCurrentUserByNumber, createOrder, updateOrder, deleteOrder) остаются без изменений ---
+// (Вставьте сюда остальные функции из предыдущего исправленного файла)
 
 export const getOrdersCurrentUser = async (
     req: Request,
@@ -161,14 +174,29 @@ export const getOrderByNumber = async (
     next: NextFunction
 ) => {
     try {
-        const order = await Order.findOne({ orderNumber: req.params.orderNumber })
+        // Валидация orderNumber может быть добавлена здесь, если необходимо,
+        // но Mongoose обычно обрабатывает попытки ввода недопустимого ObjectID или инъекции в строке.
+        // Если orderNumber всегда числовое, можно добавить parseInt и проверку.
+        const orderNumberParam = req.params.orderNumber;
+        // Простая проверка, что параметр не содержит очевидных инъекций (опционально)
+        if (typeof orderNumberParam === 'string' && (orderNumberParam.includes('$') || orderNumberParam.includes('.'))) {
+             // В зависимости от логики, можно вернуть 400 или 404
+             // 404 более безопасно, если инъекция обнаружена
+             return next(new NotFoundError('Заказ не найден'));
+        }
+
+        const order = await Order.findOne({ orderNumber: orderNumberParam })
             .populate(['customer', 'products'])
-            .orFail(() => new NotFoundError('Заказ не найден'))
-        res.json(order)
+            .orFail(() => new NotFoundError('Заказ не найден'));
+        res.json(order);
     } catch (error) {
-        next(error)
+        // Обработка ошибки Mongoose, например, если orderNumber - не число, но в базе хранится как Number
+        if ((error as any).name === 'DocumentNotFoundError') {
+             return next(new NotFoundError('Заказ не найден'));
+        }
+        next(error); // Передаем другие ошибки (например, CastError) дальше
     }
-}
+};
 
 export const getOrderCurrentUserByNumber = async (
     req: Request,
@@ -176,18 +204,28 @@ export const getOrderCurrentUserByNumber = async (
     next: NextFunction
 ) => {
     try {
-        const userId = res.locals.user._id
+        const userId = res.locals.user._id;
+        const orderNumberParam = req.params.orderNumber;
+         // Простая проверка, что параметр не содержит очевидных инъекций (опционально)
+         if (typeof orderNumberParam === 'string' && (orderNumberParam.includes('$') || orderNumberParam.includes('.'))) {
+             // В зависимости от логики, можно вернуть 400 или 404
+             // 404 более безопасно, если инъекция обнаружена
+             return next(new NotFoundError('Заказ не найден'));
+        }
         const order = await Order.findOne({
-            orderNumber: req.params.orderNumber,
+            orderNumber: orderNumberParam,
             customer: userId,
         })
             .populate(['customer', 'products'])
-            .orFail(() => new NotFoundError('Заказ не найден'))
-        res.json(order)
+            .orFail(() => new NotFoundError('Заказ не найден'));
+        res.json(order);
     } catch (error) {
-        next(error)
+        if ((error as any).name === 'DocumentNotFoundError') {
+             return next(new NotFoundError('Заказ не найден'));
+        }
+        next(error);
     }
-}
+};
 
 export const createOrder = async (
     req: Request,
@@ -247,19 +285,32 @@ export const updateOrder = async (
     next: NextFunction
 ) => {
     try {
-        const { status } = req.body
+        const { status, phone: rawPhone } = req.body; // Добавляем деструктуризацию phone
+
+        const updateData: any = {};
+        if (status !== undefined) {
+            updateData.status = status;
+        }
+        if (rawPhone !== undefined) { // Проверяем, передан ли phone в теле запроса
+            const phone = String(rawPhone).replace(/[^\d+]/g, '');
+            if (!phone || phone.length < 10 || phone.length > 15 || !/^\+?\d+$/.test(phone)) {
+                return next(new BadRequestError('Некорректный номер телефона'));
+            }
+            updateData.phone = phone; // Добавляем валидированный phone в объект обновления
+        }
+
         const updatedOrder = await Order.findOneAndUpdate(
-            { orderNumber: req.params.orderNumber },
-            { status },
+            { orderNumber: req.params.orderNumber }, // orderNumber из пути
+            updateData, // Используем сформированный объект updateData
             { new: true, runValidators: true }
         )
             .populate(['customer', 'products'])
-            .orFail(() => new NotFoundError('Заказ не найден'))
-        res.json(updatedOrder)
+            .orFail(() => new NotFoundError('Заказ не найден'));
+        res.json(updatedOrder);
     } catch (error) {
-        next(error)
+        next(error);
     }
-}
+};
 
 export const deleteOrder = async (
     req: Request,
@@ -267,8 +318,8 @@ export const deleteOrder = async (
     next: NextFunction
 ) => {
     try {
-        const deletedOrder = await Order.findOneAndDelete({ 
-            orderNumber: req.params.orderNumber 
+        const deletedOrder = await Order.findOneAndDelete({
+            orderNumber: req.params.orderNumber
         }).orFail(
             () => new NotFoundError('Заказ не найден')
         )

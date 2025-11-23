@@ -1,3 +1,4 @@
+// routes/order.ts
 import { Router } from 'express'
 import { 
     getOrders, 
@@ -8,10 +9,11 @@ import {
     updateOrder, 
     deleteOrder 
 } from '../controllers/order'
+import { adminGuard } from '../middlewares/auth';
 
 const router = Router()
 
-router.get('/', getOrders)
+router.get('/', adminGuard, getOrders)
 router.get('/my', getOrdersCurrentUser)
 router.get('/:orderNumber', getOrderByNumber) 
 router.get('/my/:orderNumber', getOrderCurrentUserByNumber)

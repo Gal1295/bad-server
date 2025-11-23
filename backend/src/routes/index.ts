@@ -5,17 +5,48 @@ import orderRouter from './order'
 import productRouter from './product'
 import uploadRouter from './upload'
 import auth from '../middlewares/auth'
+import { adminGuard } from '../middlewares/auth' // Используем существующий adminGuard
 import NotFoundError from '../errors/not-found-error'
 
 const router = Router()
 
+// ✅ ДЕТАЛЬНАЯ ДИАГНОСТИКА КАЖДОГО ЗАПРОСА
+router.use((req, res, next) => {
+    console.log('=== 🎯 ROUTER DIAGNOSTICS ===');
+    console.log('🎯 Method:', req.method);
+    console.log('🎯 Path:', req.path);
+    console.log('🎯 Original URL:', req.originalUrl);
+    console.log('🎯 Base URL:', req.baseUrl);
+    console.log('🎯 Query:', req.query);
+    console.log('=== 🎯 END DIAGNOSTICS ===');
+    next();
+});
+
+// Диагностические маршруты
+router.get('/health', (req, res) => {
+    console.log('✅ Health check called');
+    res.json({ 
+        status: 'OK',
+        service: 'backend', 
+        timestamp: new Date(),
+        routes: ['/auth', '/orders', '/upload', '/customers', '/product']
+    });
+});
+
+// Основные роуты
 router.use('/auth', authRouter)
 router.use('/product', productRouter)
-router.use('/orders', auth, orderRouter)
-router.use('/customers', auth, customerRouter)
+router.use('/orders', auth, adminGuard, orderRouter)  // ✅ Только админы
+router.use('/customers', auth, adminGuard, customerRouter)  // ✅ Только админы
 router.use('/upload', auth, uploadRouter)
-router.use((req, res, next) => {
-  next(new NotFoundError('Маршрут не найден'))
+
+// Обработка 404
+router.use('*', (req, res, next) => {
+    console.log('❌ 404 - Маршрут не найден. Доступные пути:');
+    console.log('❌ Method:', req.method);
+    console.log('❌ Path:', req.path);
+    console.log('❌ Original URL:', req.originalUrl);
+    next(new NotFoundError('Маршрут не найден'))
 })
 
 export default router
