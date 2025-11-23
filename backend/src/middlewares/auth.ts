@@ -8,7 +8,6 @@ import UserModel from '../models/user'
 
 const auth = async (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.header('Authorization')
-  
   if (!authHeader?.startsWith('Bearer ')) {
     return next(new UnauthorizedError('Необходима авторизация'))
   }
