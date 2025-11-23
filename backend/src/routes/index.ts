@@ -5,12 +5,11 @@ import orderRouter from './order'
 import productRouter from './product'
 import uploadRouter from './upload'
 import auth from '../middlewares/auth'
-import { adminGuard } from '../middlewares/auth' // Используем существующий adminGuard
+import { adminGuard } from '../middlewares/auth'
 import NotFoundError from '../errors/not-found-error'
 
 const router = Router()
 
-// ✅ ДЕТАЛЬНАЯ ДИАГНОСТИКА КАЖДОГО ЗАПРОСА
 router.use((req, res, next) => {
     console.log('=== 🎯 ROUTER DIAGNOSTICS ===');
     console.log('🎯 Method:', req.method);
@@ -22,7 +21,6 @@ router.use((req, res, next) => {
     next();
 });
 
-// Диагностические маршруты
 router.get('/health', (req, res) => {
     console.log('✅ Health check called');
     res.json({ 
@@ -33,14 +31,24 @@ router.get('/health', (req, res) => {
     });
 });
 
-// Основные роуты
 router.use('/auth', authRouter)
 router.use('/product', productRouter)
-router.use('/orders', auth, adminGuard, orderRouter)  // ✅ Только админы
-router.use('/customers', auth, adminGuard, customerRouter)  // ✅ Только админы
+router.use('/orders', auth, adminGuard, orderRouter)
+router.use('/customers', auth, adminGuard, customerRouter)
 router.use('/upload', auth, uploadRouter)
 
-// Обработка 404
+router.post('/test-phone-validation', (req, res, next) => {
+    const { phone } = req.body;
+    const cleanedPhone = phone ? String(phone).replace(/[^\d+]/g, '') : '';
+    if (!cleanedPhone || cleanedPhone.length < 10 || cleanedPhone.length > 15 || !/^\+?\d+$/.test(cleanedPhone)) {
+        return res.status(400).json({
+            success: false,
+            message: 'Некорректный номер телефона'
+        });
+    }
+    
+    res.json({ success: true, phone: cleanedPhone });
+});
 router.use('*', (req, res, next) => {
     console.log('❌ 404 - Маршрут не найден. Доступные пути:');
     console.log('❌ Method:', req.method);

@@ -1,4 +1,3 @@
-// controllers/order.ts
 import sanitizeHtml from 'sanitize-html'
 import { NextFunction, Request, Response } from 'express'
 import { FilterQuery, Types, Error as MongooseError } from 'mongoose'
@@ -7,13 +6,8 @@ import NotFoundError from '../errors/not-found-error'
 import Order, { IOrder } from '../models/order'
 import Product, { IProduct } from '../models/product'
 import User from '../models/user'
-import { phoneRegExp } from '../middlewares/validations' // Импортируем phoneRegExp из validations.ts
-import escapeRegExp from '../utils/escapeRegExp'; // Импортируем escapeRegExp из нового файла
 
 const MAX_LIMIT = 10
-
-// --- getOrders, getOrdersCurrentUser, getOrderByNumber, getOrderCurrentUserByNumber, createOrder, updateOrder, deleteOrder остаются без изменений ---
-// (Вставьте сюда оригинальные функции из предыдущего исправленного файла, они не изменились, кроме getOrders)
 
 export const getOrders = async (
     req: Request,
@@ -21,6 +15,11 @@ export const getOrders = async (
     next: NextFunction
 ) => {
     try {
+        console.log('=== GET ORDERS CALLED ===');
+        console.log('URL:', req.originalUrl);
+        console.log('Method:', req.method);
+        console.log('Query params:', req.query);
+
         let page = 1;
         const rawPage = req.query.page as string | undefined;
         if (rawPage !== undefined) {
@@ -43,6 +42,9 @@ export const getOrders = async (
             }
             limit = Math.min(parsedLimit, MAX_LIMIT);
         }
+
+        console.log('📋 Raw limit from query:', rawLimit);
+        console.log('✅ Final limit after normalization:', limit);
 
         const unsafeKeys = Object.keys(req.query).filter(key =>
             key.startsWith('$') || key.includes('__proto__') || key.includes('constructor')
@@ -67,17 +69,13 @@ export const getOrders = async (
         let result = orders;
         const search = req.query.search as string | undefined;
         if (search) {
-            // 1. Санитизируем строку поиска от HTML
             const cleanSearch = sanitizeHtml(search, { allowedTags: [], allowedAttributes: {} });
-            // 2. Экранируем специальные символы для RegExp
-            const escapedSearch = escapeRegExp(cleanSearch);
-            // 3. Создаём RegExp с экранированной строкой
-            const searchRegex = new RegExp(escapedSearch, 'i');
+            // ✅ Упрощаем поиск - используем includes вместо RegExp для безопасности
             result = result.filter(order => {
                 const matchesProductTitle = order.products?.some(
-                    (product: any) => product.title && product.title.match(searchRegex)
+                    (product: any) => product.title && product.title.toLowerCase().includes(cleanSearch.toLowerCase())
                 );
-                const matchesOrderNumber = order.orderNumber?.toString().includes(cleanSearch); // Используем cleanSearch для чисел
+                const matchesOrderNumber = order.orderNumber?.toString().includes(cleanSearch);
                 return matchesProductTitle || matchesOrderNumber;
             });
         }
@@ -91,22 +89,23 @@ export const getOrders = async (
 
         const totalOrders = await Order.countDocuments(filters);
 
+        console.log('📊 Final page:', page, 'Final limit:', limit);
+        console.log('✅ Sending successful response');
+
         res.status(200).json({
             orders: processedResult,
             pagination: {
                 totalOrders,
                 totalPages: Math.ceil(totalOrders / limit),
                 currentPage: page,
-                pageSize: limit,
+                pageSize: limit, // ✅ Возвращаем нормализованный лимит
             },
         });
     } catch (error) {
+        console.error('Error getting orders:', error);
         next(error);
     }
 };
-
-// --- Остальные функции (getOrdersCurrentUser, getOrderByNumber, getOrderCurrentUserByNumber, createOrder, updateOrder, deleteOrder) остаются без изменений ---
-// (Вставьте сюда остальные функции из предыдущего исправленного файла)
 
 export const getOrdersCurrentUser = async (
     req: Request,
@@ -174,27 +173,20 @@ export const getOrderByNumber = async (
     next: NextFunction
 ) => {
     try {
-        // Валидация orderNumber может быть добавлена здесь, если необходимо,
-        // но Mongoose обычно обрабатывает попытки ввода недопустимого ObjectID или инъекции в строке.
-        // Если orderNumber всегда числовое, можно добавить parseInt и проверку.
         const orderNumberParam = req.params.orderNumber;
-        // Простая проверка, что параметр не содержит очевидных инъекций (опционально)
-        if (typeof orderNumberParam === 'string' && (orderNumberParam.includes('$') || orderNumberParam.includes('.'))) {
-             // В зависимости от логики, можно вернуть 400 или 404
-             // 404 более безопасно, если инъекция обнаружена
-             return next(new NotFoundError('Заказ не найден'));
+        
+        // ✅ Простая валидация номера заказа
+        const orderNumber = parseInt(orderNumberParam, 10);
+        if (isNaN(orderNumber)) {
+            return next(new BadRequestError('Некорректный номер заказа'));
         }
 
-        const order = await Order.findOne({ orderNumber: orderNumberParam })
+        const order = await Order.findOne({ orderNumber: orderNumber })
             .populate(['customer', 'products'])
             .orFail(() => new NotFoundError('Заказ не найден'));
         res.json(order);
     } catch (error) {
-        // Обработка ошибки Mongoose, например, если orderNumber - не число, но в базе хранится как Number
-        if ((error as any).name === 'DocumentNotFoundError') {
-             return next(new NotFoundError('Заказ не найден'));
-        }
-        next(error); // Передаем другие ошибки (например, CastError) дальше
+        next(error);
     }
 };
 
@@ -206,23 +198,20 @@ export const getOrderCurrentUserByNumber = async (
     try {
         const userId = res.locals.user._id;
         const orderNumberParam = req.params.orderNumber;
-         // Простая проверка, что параметр не содержит очевидных инъекций (опционально)
-         if (typeof orderNumberParam === 'string' && (orderNumberParam.includes('$') || orderNumberParam.includes('.'))) {
-             // В зависимости от логики, можно вернуть 400 или 404
-             // 404 более безопасно, если инъекция обнаружена
-             return next(new NotFoundError('Заказ не найден'));
+        
+        const orderNumber = parseInt(orderNumberParam, 10);
+        if (isNaN(orderNumber)) {
+            return next(new BadRequestError('Некорректный номер заказа'));
         }
+
         const order = await Order.findOne({
-            orderNumber: orderNumberParam,
+            orderNumber: orderNumber,
             customer: userId,
         })
             .populate(['customer', 'products'])
             .orFail(() => new NotFoundError('Заказ не найден'));
         res.json(order);
     } catch (error) {
-        if ((error as any).name === 'DocumentNotFoundError') {
-             return next(new NotFoundError('Заказ не найден'));
-        }
         next(error);
     }
 };
@@ -242,6 +231,8 @@ export const createOrder = async (
             payment,
             email,
         } = req.body
+        
+        // ✅ ВАЖНО: Проверка телефона должна возвращать 400 при ошибке
         const phone = rawPhone ? String(rawPhone).replace(/[^\d+]/g, '') : ''
         if (!phone || phone.length < 10 || phone.length > 15 || !/^\+?\d+$/.test(phone)) {
             return next(new BadRequestError('Некорректный номер телефона'))
@@ -272,10 +263,12 @@ export const createOrder = async (
 
         res.status(201).json(populated)
     } catch (error) {
-        next(error instanceof MongooseError.ValidationError
-            ? new BadRequestError(error.message)
-            : error
-        )
+        // ✅ Обработка ошибок валидации Mongoose
+        if (error instanceof MongooseError.ValidationError) {
+            const messages = Object.values(error.errors).map(err => err.message);
+            return next(new BadRequestError(messages.join(', ')));
+        }
+        next(error);
     }
 }
 
@@ -285,23 +278,29 @@ export const updateOrder = async (
     next: NextFunction
 ) => {
     try {
-        const { status, phone: rawPhone } = req.body; // Добавляем деструктуризацию phone
+        const { status, phone: rawPhone } = req.body;
+
+        const orderNumberParam = req.params.orderNumber;
+        const orderNumber = parseInt(orderNumberParam, 10);
+        if (isNaN(orderNumber)) {
+            return next(new BadRequestError('Некорректный номер заказа'));
+        }
 
         const updateData: any = {};
         if (status !== undefined) {
             updateData.status = status;
         }
-        if (rawPhone !== undefined) { // Проверяем, передан ли phone в теле запроса
+        if (rawPhone !== undefined) {
             const phone = String(rawPhone).replace(/[^\d+]/g, '');
             if (!phone || phone.length < 10 || phone.length > 15 || !/^\+?\d+$/.test(phone)) {
                 return next(new BadRequestError('Некорректный номер телефона'));
             }
-            updateData.phone = phone; // Добавляем валидированный phone в объект обновления
+            updateData.phone = phone;
         }
 
         const updatedOrder = await Order.findOneAndUpdate(
-            { orderNumber: req.params.orderNumber }, // orderNumber из пути
-            updateData, // Используем сформированный объект updateData
+            { orderNumber: orderNumber },
+            updateData,
             { new: true, runValidators: true }
         )
             .populate(['customer', 'products'])
@@ -318,8 +317,14 @@ export const deleteOrder = async (
     next: NextFunction
 ) => {
     try {
+        const orderNumberParam = req.params.orderNumber;
+        const orderNumber = parseInt(orderNumberParam, 10);
+        if (isNaN(orderNumber)) {
+            return next(new BadRequestError('Некорректный номер заказа'));
+        }
+
         const deletedOrder = await Order.findOneAndDelete({
-            orderNumber: req.params.orderNumber
+            orderNumber: orderNumber
         }).orFail(
             () => new NotFoundError('Заказ не найден')
         )
