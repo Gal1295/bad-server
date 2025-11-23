@@ -11,13 +11,12 @@ import {
 
 const router = Router()
 
-// Теперь эти пути будут доступны по /orders/*
-router.get('/', getOrders)  // GET /orders
-router.get('/my', getOrdersCurrentUser)  // GET /orders/my
-router.get('/:orderNumber', getOrderByNumber)  // GET /orders/123
-router.get('/my/:orderNumber', getOrderCurrentUserByNumber)  // GET /orders/my/123
-router.post('/', createOrder)  // POST /orders
-router.patch('/:orderNumber', updateOrder)  // PATCH /orders/123
-router.delete('/:orderNumber', deleteOrder)  // DELETE /orders/123
+router.get('/', getOrders)
+router.get('/my', getOrdersCurrentUser)
+router.get('/:orderNumber', getOrderByNumber) 
+router.get('/my/:orderNumber', getOrderCurrentUserByNumber)
+router.post('/', createOrder)
+router.patch('/:orderNumber', updateOrder)
+router.delete('/:orderNumber', deleteOrder)
 
 export default router
