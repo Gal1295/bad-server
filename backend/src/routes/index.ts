@@ -10,17 +10,7 @@ import NotFoundError from '../errors/not-found-error'
 
 const router = Router()
 
-router.use((req, res, next) => {
-    console.log('=== 🎯 ROUTER DIAGNOSTICS ===');
-    console.log('🎯 Method:', req.method);
-    console.log('🎯 Path:', req.path);
-    console.log('🎯 Original URL:', req.originalUrl);
-    console.log('🎯 Base URL:', req.baseUrl);
-    console.log('🎯 Query:', req.query);
-    console.log('=== 🎯 END DIAGNOSTICS ===');
-    next();
-});
-
+// Диагностические маршруты
 router.get('/health', (req, res) => {
     console.log('✅ Health check called');
     res.json({ 
@@ -31,14 +21,18 @@ router.get('/health', (req, res) => {
     });
 });
 
+// Основные роуты
 router.use('/auth', authRouter)
 router.use('/product', productRouter)
-router.use('/orders', auth, adminGuard, orderRouter)
-router.use('/customers', auth, adminGuard, customerRouter)
+router.use('/orders', auth, adminGuard, orderRouter)  // ✅ Только админы
+router.use('/customers', auth, adminGuard, customerRouter)  // ✅ Только админы
 router.use('/upload', auth, uploadRouter)
 
-router.post('/test-phone-validation', (req, res, next) => {
+// ✅ ДОБАВИМ РОУТ ДЛЯ ТЕСТА УЯЗВИМОСТИ ТЕЛЕФОНА
+router.post('/test-phone-validation', (req, res) => {
     const { phone } = req.body;
+    
+    // ✅ Простая валидация телефона как в createOrder
     const cleanedPhone = phone ? String(phone).replace(/[^\d+]/g, '') : '';
     if (!cleanedPhone || cleanedPhone.length < 10 || cleanedPhone.length > 15 || !/^\+?\d+$/.test(cleanedPhone)) {
         return res.status(400).json({
@@ -49,11 +43,10 @@ router.post('/test-phone-validation', (req, res, next) => {
     
     res.json({ success: true, phone: cleanedPhone });
 });
+
+// Обработка 404
 router.use('*', (req, res, next) => {
-    console.log('❌ 404 - Маршрут не найден. Доступные пути:');
-    console.log('❌ Method:', req.method);
-    console.log('❌ Path:', req.path);
-    console.log('❌ Original URL:', req.originalUrl);
+    console.log('❌ 404 - Маршрут не найден:', req.method, req.originalUrl);
     next(new NotFoundError('Маршрут не найден'))
 })
 

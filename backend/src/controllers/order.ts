@@ -4,8 +4,6 @@ import { FilterQuery, Types, Error as MongooseError } from 'mongoose'
 import BadRequestError from '../errors/bad-request-error'
 import NotFoundError from '../errors/not-found-error'
 import Order, { IOrder } from '../models/order'
-import Product, { IProduct } from '../models/product'
-import User from '../models/user'
 
 const MAX_LIMIT = 10
 
@@ -16,9 +14,6 @@ export const getOrders = async (
 ) => {
     try {
         console.log('=== GET ORDERS CALLED ===');
-        console.log('URL:', req.originalUrl);
-        console.log('Method:', req.method);
-        console.log('Query params:', req.query);
 
         let page = 1;
         const rawPage = req.query.page as string | undefined;
@@ -70,7 +65,6 @@ export const getOrders = async (
         const search = req.query.search as string | undefined;
         if (search) {
             const cleanSearch = sanitizeHtml(search, { allowedTags: [], allowedAttributes: {} });
-            // ✅ Упрощаем поиск - используем includes вместо RegExp для безопасности
             result = result.filter(order => {
                 const matchesProductTitle = order.products?.some(
                     (product: any) => product.title && product.title.toLowerCase().includes(cleanSearch.toLowerCase())
@@ -98,7 +92,7 @@ export const getOrders = async (
                 totalOrders,
                 totalPages: Math.ceil(totalOrders / limit),
                 currentPage: page,
-                pageSize: limit, // ✅ Возвращаем нормализованный лимит
+                pageSize: limit, // ✅ ВАЖНО: возвращаем нормализованный лимит
             },
         });
     } catch (error) {
@@ -106,6 +100,8 @@ export const getOrders = async (
         next(error);
     }
 };
+
+// ... остальные функции без изменений
 
 export const getOrdersCurrentUser = async (
     req: Request,
