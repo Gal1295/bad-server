@@ -8,8 +8,6 @@ import UserModel from '../models/user'
 
 const auth = async (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.header('Authorization')
-  console.log('🔐 AUTH MIDDLEWARE - Path:', req.path);
-  console.log('🔐 Authorization header:', authHeader);
   
   if (!authHeader?.startsWith('Bearer ')) {
     return next(new UnauthorizedError('Необходима авторизация'))
@@ -36,18 +34,10 @@ const auth = async (req: Request, res: Response, next: NextFunction) => {
   }
 }
 
-// Исправленный adminGuard
 export const adminGuard = (req: Request, res: Response, next: NextFunction) => {
-  console.log('🔐 ADMIN GUARD - Checking roles:', res.locals.user?.roles);
-  
-  // Проверяем, что пользователь существует и имеет роль 'admin'
   if (!res.locals.user || !res.locals.user.roles?.includes('admin')) {
-    console.log('❌ ADMIN GUARD - Access denied');
-    // Возвращаем ошибку доступа, если пользователь не авторизован как админ
     return next(new ForbiddenError('Доступ запрещён'))
   }
-  console.log('✅ ADMIN GUARD - Access granted');
-  // Если всё в порядке, продолжаем выполнение
   next()
 }
 

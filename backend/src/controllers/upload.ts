@@ -21,10 +21,8 @@ export const uploadFile = async (
         console.log('🎯 UPLOAD CONTROLLER - START');
         
         const file = (req as MulterRequest).file;
-        console.log('🎯 File object received:', !!file);
 
         if (!file) {
-            console.log('❌ No file in request');
             return res.status(400).json({
                 success: false,
                 message: 'Файл не загружен',
@@ -33,11 +31,7 @@ export const uploadFile = async (
 
         const { size, mimetype, buffer, originalname } = file;
 
-        console.log('🎯 Checking file size:', size, 'MIN:', MIN_FILE_SIZE, 'MAX:', MAX_FILE_SIZE);
-
-        // Проверка размера файла
         if (size < MIN_FILE_SIZE) {
-            console.log('❌ File too small');
             return res.status(400).json({
                 success: false,
                 message: `Файл слишком маленький. Минимальный размер: ${MIN_FILE_SIZE} байт`,
@@ -45,14 +39,11 @@ export const uploadFile = async (
         }
 
         if (size > MAX_FILE_SIZE) {
-            console.log('❌ File too large');
             return res.status(400).json({
                 success: false,
                 message: `Файл слишком большой. Максимальный размер: ${MAX_FILE_SIZE} байт`,
             })
         }
-
-        // Проверка типа файла
         const allowedImageTypes = [
             'image/png',
             'image/jpeg',
@@ -62,26 +53,12 @@ export const uploadFile = async (
             'image/svg+xml',
         ]
 
-        console.log('🎯 Checking mimetype:', mimetype);
-        
         if (!allowedImageTypes.includes(mimetype)) {
-            console.log('❌ Invalid file type');
             return res.status(400).json({
                 success: false,
                 message: 'Файл не является валидным изображением',
             })
         }
-
-        // Проверка buffer (memory storage)
-        if (!buffer || buffer.length === 0) {
-            console.log('❌ File buffer is empty');
-            return res.status(400).json({
-                success: false,
-                message: 'Файл пустой или поврежден',
-            })
-        }
-
-        // ✅ Генерируем СЛУЧАЙНОЕ имя - НЕ ИСПОЛЬЗУЕМ ОРИГИНАЛЬНОЕ ИМЯ
         const randomName = crypto.randomBytes(16).toString('hex');
         
         const mimeToExt: { [key: string]: string } = {
@@ -94,8 +71,8 @@ export const uploadFile = async (
         }
 
         const ext = mimeToExt[mimetype] || '.bin'
-        const newFileName = randomName + ext // ✅ Только случайное имя
-        const fileName = `/images/${newFileName}` // ✅ Сохраняем в images
+        const newFileName = randomName + ext 
+        const fileName = `/images/${newFileName}`
 
         console.log('✅ Generated random filename:', newFileName);
         console.log('✅ Original filename was:', originalname);
@@ -108,8 +85,6 @@ export const uploadFile = async (
         
         const filePath = path.join(imagesDir, newFileName);
         fs.writeFileSync(filePath, buffer);
-        
-        console.log('✅ File saved successfully:', filePath);
 
         return res.status(constants.HTTP_STATUS_CREATED).json({
             success: true,

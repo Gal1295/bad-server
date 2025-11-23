@@ -10,7 +10,6 @@ import NotFoundError from '../errors/not-found-error'
 
 const router = Router()
 
-// Диагностические маршруты
 router.get('/health', (req, res) => {
     console.log('✅ Health check called');
     res.json({ 
@@ -24,15 +23,13 @@ router.get('/health', (req, res) => {
 // Основные роуты
 router.use('/auth', authRouter)
 router.use('/product', productRouter)
-router.use('/orders', auth, adminGuard, orderRouter)  // ✅ Только админы
-router.use('/customers', auth, adminGuard, customerRouter)  // ✅ Только админы
+router.use('/orders', auth, adminGuard, orderRouter)
+router.use('/customers', auth, adminGuard, customerRouter)
 router.use('/upload', auth, uploadRouter)
 
-// ✅ ДОБАВИМ РОУТ ДЛЯ ТЕСТА УЯЗВИМОСТИ ТЕЛЕФОНА
 router.post('/test-phone-validation', (req, res) => {
     const { phone } = req.body;
     
-    // ✅ Простая валидация телефона как в createOrder
     const cleanedPhone = phone ? String(phone).replace(/[^\d+]/g, '') : '';
     if (!cleanedPhone || cleanedPhone.length < 10 || cleanedPhone.length > 15 || !/^\+?\d+$/.test(cleanedPhone)) {
         return res.status(400).json({
