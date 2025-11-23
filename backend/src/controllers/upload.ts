@@ -4,7 +4,6 @@ import fs from 'fs'
 import path from 'path'
 import { fileTypeFromFile } from 'file-type'
 import BadRequestError from '../errors/bad-request-error'
-import { UPLOAD_PATH, UPLOAD_PATH_TEMP } from '../config'
 
 interface MulterRequest extends Request {
     file: Express.Multer.File
@@ -27,40 +26,15 @@ export const uploadFile = async (
     }
 
     const { size, filename } = file
-    const tempDir = UPLOAD_PATH_TEMP
-    const publicDir = path.join(__dirname, '..', 'public')
-    const tempPath = path.join(publicDir, tempDir, filename)
-    try {
-        await fs.promises.access(publicDir, fs.constants.F_OK)
-    } catch (err) {
-        console.error(`Директория public не существует: ${publicDir}`)
-        return res.status(500).json({
-            success: false,
-            message: 'Внутренняя ошибка сервера',
-        })
-    }
-    const fullTempDir = path.join(publicDir, tempDir)
-    try {
-        await fs.promises.mkdir(fullTempDir, { recursive: true })
-    } catch (err) {
-        console.error(`Не удалось создать директорию temp: ${fullTempDir}`, err)
-        return res.status(500).json({
-            success: false,
-            message: 'Внутренняя ошибка сервера',
-        })
-    }
+    const tempDir = process.env.UPLOAD_PATH_TEMP || 'temp'
+    const filePath = path.join(__dirname, '..', 'public', tempDir, filename)
 
     if (size < MIN_FILE_SIZE) {
-        try {
-            await fs.promises.unlink(tempPath)
-        } catch (err) {
-            if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-                console.warn(
-                    `Не удалось удалить ${tempPath} после проверки размера:`,
-                    (err as Error).message
-                )
+        fs.unlink(filePath, (err) => {
+            if (err && err.code !== 'ENOENT') {
+                console.warn(`Не удалось удалить ${filePath}:`, err.message)
             }
-        }
+        })
         return res.status(400).json({
             success: false,
             message: `Файл слишком маленький. Минимальный размер: ${MIN_FILE_SIZE} байт`,
@@ -78,19 +52,10 @@ export const uploadFile = async (
 
         let fileType
         try {
-            fileType = await fileTypeFromFile(tempPath)
+            fileType = await fileTypeFromFile(filePath)
         } catch (e) {
             console.error('Ошибка при определении типа файла:', e)
-            try {
-                await fs.promises.unlink(tempPath)
-            } catch (unlinkErr) {
-                if ((unlinkErr as NodeJS.ErrnoException).code !== 'ENOENT') {
-                    console.warn(
-                        `Не удалось удалить ${tempPath} после ошибки fileType:`,
-                        (unlinkErr as Error).message
-                    )
-                }
-            }
+            fs.unlink(filePath, () => {})
             return res.status(400).json({
                 success: false,
                 message: 'Невозможно определить тип файла',
@@ -98,16 +63,7 @@ export const uploadFile = async (
         }
 
         if (!fileType || !allowedImageTypes.includes(fileType.mime)) {
-            try {
-                await fs.promises.unlink(tempPath)
-            } catch (unlinkErr) {
-                if ((unlinkErr as NodeJS.ErrnoException).code !== 'ENOENT') {
-                    console.warn(
-                        `Не удалось удалить ${tempPath} после проверки типа:`,
-                        (unlinkErr as Error).message
-                    )
-                }
-            }
+            fs.unlink(filePath, () => {})
             return res.status(400).json({
                 success: false,
                 message: 'Файл не является валидным изображением',
@@ -127,35 +83,18 @@ export const uploadFile = async (
 
         const ext = mimeToExt[fileType.mime] || '.bin'
         const newFileName = randomName + ext
-        const finalDir = path.join(publicDir, UPLOAD_PATH)
+        const newFilePath = path.join(
+            __dirname,
+            '..',
+            'public',
+            tempDir,
+            newFileName
+        )
+        fs.renameSync(filePath, newFilePath)
 
-        try {
-            await fs.promises.mkdir(finalDir, { recursive: true })
-        } catch (err) {
-            console.error(
-                `Не удалось создать директорию для финального файла: ${finalDir}`,
-                err
-            )
-            try {
-                await fs.promises.unlink(tempPath)
-            } catch (unlinkErr) {
-                if ((unlinkErr as NodeJS.ErrnoException).code !== 'ENOENT') {
-                    console.warn(
-                        `Не удалось удалить временный файл ${tempPath}:`,
-                        (unlinkErr as Error).message
-                    )
-                }
-            }
-            return res.status(500).json({
-                success: false,
-                message: 'Внутренняя ошибка сервера',
-            })
-        }
-
-        const newFilePath = path.join(finalDir, newFileName)
-
-        await fs.promises.rename(tempPath, newFilePath)
-        const fileName = `/${UPLOAD_PATH}/${newFileName}`
+        const fileName = process.env.UPLOAD_PATH
+            ? `/${process.env.UPLOAD_PATH}/${newFileName}`
+            : `/${newFileName}`
 
         return res.status(constants.HTTP_STATUS_CREATED).json({
             success: true,
@@ -163,16 +102,7 @@ export const uploadFile = async (
         })
     } catch (error) {
         console.error('Ошибка в uploadFile:', error)
-        try {
-            await fs.promises.unlink(tempPath)
-        } catch (unlinkErr) {
-            if ((unlinkErr as NodeJS.ErrnoException).code !== 'ENOENT') {
-                console.warn(
-                    `Не удалось удалить ${tempPath} после общей ошибки:`,
-                    (unlinkErr as Error).message
-                )
-            }
-        }
+        fs.unlink(filePath, () => {})
         return res.status(500).json({
             success: false,
             message: 'Внутренняя ошибка сервера',
