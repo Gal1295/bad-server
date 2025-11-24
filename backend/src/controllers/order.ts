@@ -9,7 +9,7 @@ import escapeRegExp from '../utils/escapeRegExp'
 
 const sanitizeHtml = (input: string): string => {
     if (!input) return input
-    
+
     return input
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
@@ -22,13 +22,11 @@ const sanitizeHtml = (input: string): string => {
 }
 
 const normalizeLimit = (limit: any, max = 10): number => {
-    const parsed = parseInt(limit as string)
-    return Math.min(isNaN(parsed) ? max : parsed, max)
+    const parsed = parseInt(limit as string, 10)
+    return Math.min(Number.isNaN(parsed) ? max : parsed, max)
 }
 
-const cleanPhone = (phone: string): string => {
-    return phone.replace(/[^\d\s\-\+\(\)]/g, '')
-}
+const cleanPhone = (phone: string): string => phone.replace(/[^\d\s\-+()]/g, '')
 
 // eslint-disable-next-line max-len
 // GET /orders?page=2&limit=5&sort=totalAmount&order=desc&orderDateFrom=2024-07-01&orderDateTo=2024-08-01&status=delivering&totalAmountFrom=100&totalAmountTo=1000&search=%2B1
@@ -50,20 +48,24 @@ export const getOrders = async (
             orderDateFrom,
             orderDateTo,
             search,
-            aggregate
+            aggregate, // Добавляем проверку агрегации
         } = req.query
 
+        // ЗАПРЕЩАЕМ агрегации - они уязвимы к инъекциям
         if (aggregate) {
             return res.status(400).json({
-                error: 'Aggregation operations are not allowed'
+                error: 'Aggregation operations are not allowed for security reasons'
             })
         }
+
         const normalizedLimit = normalizeLimit(limit, 10)
-        const normalizedPage = Math.max(parseInt(page as string) || 1, 1)
+        const normalizedPage = Math.max(parseInt(page as string, 10) || 1, 1)
 
         const filters: FilterQuery<Partial<IOrder>> = {}
 
+        // СТРОГАЯ проверка прав доступа
         if (res.locals.user.role !== 'admin') {
+            // Обычные пользователи видят ТОЛЬКО свои заказы
             filters.customer = res.locals.user._id
         }
 
@@ -150,9 +152,9 @@ export const getOrdersCurrentUser = async (
     try {
         const userId = res.locals.user._id
         const { search, page = 1, limit = 5 } = req.query
-        
+
         const normalizedLimit = normalizeLimit(limit, 10)
-        const normalizedPage = Math.max(parseInt(page as string) || 1, 1)
+        const normalizedPage = Math.max(parseInt(page as string, 10) || 1, 1)
 
         const user = await User.findById(userId)
             .populate({
@@ -230,12 +232,15 @@ export const getOrderByNumber = async (
                         'Заказ по заданному id отсутствует в базе'
                     )
             )
-        if (res.locals.user.role !== 'admin' && !order.customer._id.equals(res.locals.user._id)) {
+        if (
+            res.locals.user.role !== 'admin' &&
+            !order.customer._id.equals(res.locals.user._id)
+        ) {
             return next(
                 new NotFoundError('Заказ по заданному id отсутствует в базе')
             )
         }
-        
+
         return res.status(200).json(order)
     } catch (error) {
         if (error instanceof MongooseError.CastError) {
@@ -289,7 +294,7 @@ export const createOrder = async (
             req.body
 
         const sanitizedComment = comment ? sanitizeHtml(comment) : undefined
-        
+
         const cleanedPhone = cleanPhone(phone)
 
         items.forEach((id: Types.ObjectId) => {
@@ -336,12 +341,12 @@ export const updateOrder = async (
 ) => {
     try {
         const { status, comment } = req.body
-        
+
         const updateData: any = { status }
         if (comment) {
             updateData.comment = sanitizeHtml(comment)
         }
-        
+
         const updatedOrder = await Order.findOneAndUpdate(
             { orderNumber: req.params.orderNumber },
             updateData,

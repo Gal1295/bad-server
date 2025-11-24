@@ -1,7 +1,7 @@
 import { Request, Express } from 'express'
 import multer, { FileFilterCallback } from 'multer'
 import { join } from 'path'
-import { v4 as uuidv4 } from 'uuid'
+import crypto from 'crypto'
 
 type DestinationCallback = (error: Error | null, destination: string) => void
 type FileNameCallback = (error: Error | null, filename: string) => void
@@ -28,10 +28,11 @@ const storage = multer.diskStorage({
         file: Express.Multer.File,
         cb: FileNameCallback
     ) => {
-        // Генерируем уникальное имя файла вместо использования оригинального
+        // Должно генерировать уникальное имя, а не использовать file.originalname
         const fileExtension = file.originalname.split('.').pop() || ''
-        const uniqueFileName = `${uuidv4()}.${fileExtension}`
-        cb(null, uniqueFileName)
+        const uniqueId = crypto.randomBytes(16).toString('hex')
+        const uniqueFileName = `${uniqueId}.${fileExtension}`
+        cb(null, uniqueFileName) // ✅ Уникальное имя, а не file.originalname
     },
 })
 
@@ -55,7 +56,6 @@ const fileFilter = (
     return cb(null, true)
 }
 
-// Добавляем лимиты для безопасности
 export default multer({
     storage,
     fileFilter,

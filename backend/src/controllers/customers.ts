@@ -7,8 +7,8 @@ import escapeRegExp from '../utils/escapeRegExp'
 
 // Функции безопасности
 const normalizeLimit = (limit: any, max = 10): number => {
-    const parsed = parseInt(limit as string)
-    return Math.min(isNaN(parsed) ? max : parsed, max)
+    const parsed = parseInt(limit as string, 10)
+    return Math.min(Number.isNaN(parsed) ? max : parsed, max)
 }
 
 // eslint-disable-next-line max-len
@@ -40,9 +40,9 @@ export const getCustomers = async (
             search,
         } = req.query
 
-        // Нормализация лимитов
+        // ПРИМЕНЯЕМ нормализацию лимита
         const normalizedLimit = normalizeLimit(limit, 10)
-        const normalizedPage = Math.max(parseInt(page as string) || 1, 1)
+        const normalizedPage = Math.max(parseInt(page as string, 10) || 1, 1)
 
         const filters: FilterQuery<Partial<IUser>> = {}
 
@@ -106,7 +106,7 @@ export const getCustomers = async (
             }
         }
 
-        // Безопасный поиск с экранированием
+        // Используем escapeRegExp для безопасного поиска
         if (search) {
             const escapedSearch = escapeRegExp(search as string)
             const searchRegex = new RegExp(escapedSearch, 'i')
@@ -132,7 +132,7 @@ export const getCustomers = async (
         }
 
         const users = await User.find(filters)
-            .select('-password') // Исключаем пароль из ответа
+            .select('-password')
             .populate([
                 'orders',
                 {
@@ -149,7 +149,7 @@ export const getCustomers = async (
                 },
             ])
             .sort(sort)
-            .limit(normalizedLimit)
+            .limit(normalizedLimit) // Используем нормализованный лимит
             .skip((normalizedPage - 1) * normalizedLimit)
 
         const totalUsers = await User.countDocuments(filters)
@@ -182,7 +182,7 @@ export const getCustomerById = async (
         }
 
         const user = await User.findById(req.params.id)
-            .select('-password') // Исключаем пароль из ответа
+            .select('-password')
             .populate([
                 'orders',
                 'lastOrder',
@@ -220,7 +220,7 @@ export const updateCustomer = async (
                 runValidators: true,
             }
         )
-            .select('-password') // Исключаем пароль из ответа
+            .select('-password')
             .orFail(
                 () =>
                     new NotFoundError(
@@ -247,7 +247,7 @@ export const deleteCustomer = async (
         }
 
         const deletedUser = await User.findByIdAndDelete(req.params.id)
-            .select('-password') // Исключаем пароль из ответа
+            .select('-password')
             .orFail(
                 () =>
                     new NotFoundError(
