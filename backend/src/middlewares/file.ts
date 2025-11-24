@@ -28,11 +28,10 @@ const storage = multer.diskStorage({
         file: Express.Multer.File,
         cb: FileNameCallback
     ) => {
-        // Должно генерировать уникальное имя, а не использовать file.originalname
         const fileExtension = file.originalname.split('.').pop() || ''
         const uniqueId = crypto.randomBytes(16).toString('hex')
         const uniqueFileName = `${uniqueId}.${fileExtension}`
-        cb(null, uniqueFileName) // ✅ Уникальное имя, а не file.originalname
+        cb(null, uniqueFileName)
     },
 })
 
@@ -60,7 +59,7 @@ export default multer({
     storage,
     fileFilter,
     limits: {
-        fileSize: 10 * 1024 * 1024, // 10MB максимум
-        files: 1 // максимум 1 файл за раз
+        fileSize: 10 * 1024 * 1024,
+        files: 1
     }
 })

@@ -6,6 +6,7 @@ import Order, { IOrder } from '../models/order'
 import Product, { IProduct } from '../models/product'
 import User from '../models/user'
 import escapeRegExp from '../utils/escapeRegExp'
+import UnauthorizedError from '../errors/unauthorized-error'
 
 const sanitizeHtml = (input: string): string => {
     if (!input) return input
@@ -48,13 +49,13 @@ export const getOrders = async (
             orderDateFrom,
             orderDateTo,
             search,
-            aggregate, // Добавляем проверку агрегации
+            aggregate,
         } = req.query
-
-        // ЗАПРЕЩАЕМ агрегации - они уязвимы к инъекциям
-        if (aggregate) {
+        
+        // Проверяем $aggregate напрямую из req.query
+        if (aggregate || req.query.$aggregate) {
             return res.status(400).json({
-                error: 'Aggregation operations are not allowed for security reasons'
+                error: 'Aggregation operations are not allowed for security reasons',
             })
         }
 
@@ -62,6 +63,11 @@ export const getOrders = async (
         const normalizedPage = Math.max(parseInt(page as string, 10) || 1, 1)
 
         const filters: FilterQuery<Partial<IOrder>> = {}
+
+        // ✅ ИСПРАВЛЕНО: добавляем проверку пользователя
+        if (!res.locals.user) {
+            return next(new UnauthorizedError('Необходима авторизация'))
+        }
 
         // СТРОГАЯ проверка прав доступа
         if (res.locals.user.role !== 'admin') {
@@ -232,13 +238,8 @@ export const getOrderByNumber = async (
                         'Заказ по заданному id отсутствует в базе'
                     )
             )
-        if (
-            res.locals.user.role !== 'admin' &&
-            !order.customer._id.equals(res.locals.user._id)
-        ) {
-            return next(
-                new NotFoundError('Заказ по заданному id отсутствует в базе')
-            )
+        if (res.locals.user.role !== 'admin' && !order.customer._id.equals(res.locals.user._id)) {
+            return res.status(403).json({ error: 'Access denied' })
         }
 
         return res.status(200).json(order)
