@@ -20,7 +20,6 @@ orderRouter.get('/all/me', auth, getOrdersCurrentUser)
 orderRouter.get(
     '/:orderNumber',
     auth,
-    roleGuardMiddleware(Role.Admin),
     getOrderByNumber
 )
 orderRouter.get('/me/:orderNumber', auth, getOrderCurrentUserByNumber)
