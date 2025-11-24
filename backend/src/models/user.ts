@@ -106,11 +106,12 @@ const userSchema = new mongoose.Schema<IUser, IUserModel, IUserMethods>(
         toJSON: {
             virtuals: true,
             transform: (_doc, ret) => {
-                delete ret.tokens
-                delete ret.password
-                delete ret._id
-                delete ret.roles
-                return ret
+                const r = ret as any;
+                delete r.tokens;
+                delete r.password;
+                delete r._id;
+                delete r.roles;
+                return ret;
             },
         },
     }
