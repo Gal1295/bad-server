@@ -50,8 +50,14 @@ export const getOrders = async (
             orderDateFrom,
             orderDateTo,
             search,
+            aggregate
         } = req.query
 
+        if (aggregate) {
+            return res.status(400).json({
+                error: 'Aggregation operations are not allowed'
+            })
+        }
         const normalizedLimit = normalizeLimit(limit, 10)
         const normalizedPage = Math.max(parseInt(page as string) || 1, 1)
 

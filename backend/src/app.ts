@@ -17,7 +17,7 @@ const app = express()
 // Rate limiting
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
+    max: 50, // уменьшаем лимит для тестирования
     message: 'Too many requests from this IP',
     standardHeaders: true,
     legacyHeaders: false,
@@ -29,12 +29,11 @@ app.use(cookieParser())
 
 // CORS с настройками безопасности
 app.use(cors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+    origin: 'http://localhost:5173',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }))
-
 app.use(serveStatic(path.join(__dirname, 'public')))
 
 // Body size limit
