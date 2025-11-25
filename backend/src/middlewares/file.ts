@@ -1,6 +1,7 @@
 import { Request, Express } from 'express'
 import multer, { FileFilterCallback } from 'multer'
 import { join } from 'path'
+import crypto from 'crypto'
 
 type DestinationCallback = (error: Error | null, destination: string) => void
 type FileNameCallback = (error: Error | null, filename: string) => void
@@ -15,9 +16,9 @@ const storage = multer.diskStorage({
             null,
             join(
                 __dirname,
-                process.env.UPLOAD_PATH
-                    ? `../public/${process.env.UPLOAD_PATH}`
-                    : '../public/images'
+                process.env.UPLOAD_PATH_TEMP
+                    ? `../public/${process.env.UPLOAD_PATH_TEMP}`
+                    : '../public'
             )
         )
     },
@@ -27,8 +28,9 @@ const storage = multer.diskStorage({
         file: Express.Multer.File,
         cb: FileNameCallback
     ) => {
-        const fileExtension = file.originalname.split('.').pop()?.toLowerCase() || 'bin'
-        const uniqueFileName = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${fileExtension}`
+        const fileExtension = file.originalname.split('.').pop() || ''
+        const uniqueId = crypto.randomBytes(16).toString('hex')
+        const uniqueFileName = `${uniqueId}.${fileExtension}`
         cb(null, uniqueFileName)
     },
 })
@@ -49,6 +51,7 @@ const fileFilter = (
     if (!types.includes(file.mimetype)) {
         return cb(null, false)
     }
+
     return cb(null, true)
 }
 
