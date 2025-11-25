@@ -14,7 +14,6 @@ export default function serveStatic(baseDir: string) {
                 return next()
             }
             // Файл существует, отправляем его клиенту
-            // eslint-disable-next-line @typescript-eslint/no-shadow
             return res.sendFile(filePath, (err) => {
                 if (err) {
                     next(err)
