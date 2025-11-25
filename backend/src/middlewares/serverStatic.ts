@@ -8,15 +8,16 @@ export default function serveStatic(baseDir: string) {
         const filePath = path.join(baseDir, req.path)
 
         // Проверяем, существует ли файл
-        fs.access(filePath, fs.constants.F_OK, (accessErr) => {
-            if (accessErr) {
+        fs.access(filePath, fs.constants.F_OK, (err) => {
+            if (err) {
                 // Файл не существует отдаем дальше мидлварам
                 return next()
             }
             // Файл существует, отправляем его клиенту
-            return res.sendFile(filePath, (sendErr) => {
-                if (sendErr) {
-                    next(sendErr)
+            // eslint-disable-next-line @typescript-eslint/no-shadow
+            return res.sendFile(filePath, (err) => {
+                if (err) {
+                    next(err)
                 }
             })
         })

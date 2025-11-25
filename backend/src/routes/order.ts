@@ -14,11 +14,21 @@ import { validateOrderBody } from '../middlewares/validations'
 const orderRouter = Router()
 
 orderRouter.post('/', auth, validateOrderBody, createOrder)
-orderRouter.get('/current', auth, getOrdersCurrentUser)
-orderRouter.get('/current/:orderNumber', auth, getOrderCurrentUserByNumber)
-orderRouter.get('/', auth, adminGuard, getOrders)
-orderRouter.get('/:orderNumber', auth, adminGuard, getOrderByNumber)
-orderRouter.patch('/:orderNumber', auth, adminGuard, updateOrder)
-orderRouter.delete('/:orderNumber', auth, adminGuard, deleteOrder)
+orderRouter.get('/all', auth, adminGuard, getOrders)
+orderRouter.get('/all/me', auth, getOrdersCurrentUser)
+orderRouter.get(
+    '/:orderNumber',
+    auth,
+    getOrderByNumber
+)
+orderRouter.get('/me/:orderNumber', auth, getOrderCurrentUserByNumber)
+orderRouter.patch(
+    '/:orderNumber',
+    auth,
+    adminGuard,
+    updateOrder
+)
+
+orderRouter.delete('/:id', auth, adminGuard, deleteOrder)
 
 export default orderRouter

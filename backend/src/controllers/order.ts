@@ -1,12 +1,12 @@
 import { NextFunction, Request, Response } from 'express'
 import { FilterQuery, Error as MongooseError, Types } from 'mongoose'
 import BadRequestError from '../errors/bad-request-error'
-import ForbiddenError from '../errors/forbidden-error'
 import NotFoundError from '../errors/not-found-error'
 import Order, { IOrder, StatusType } from '../models/order'
 import Product, { IProduct } from '../models/product'
 import User from '../models/user'
 import escapeRegExp from '../utils/escapeRegExp'
+import UnauthorizedError from '../errors/unauthorized-error'
 
 const sanitizeHtml = (input: string): string => {
     if (!input) return input
@@ -58,19 +58,22 @@ export const getOrders = async (
             search,
             aggregate,
         } = req.query
-
-        // Защита от агрегационных инъекций
-        if (
-            aggregate === '1' ||
-            req.query.$aggregate === '1' ||
-            req.query.aggregate === 'true'
-        ) {
+        if (aggregate === '1' || req.query.$aggregate === '1') {
             return res.status(400).json({
                 error: 'Aggregation operations are not allowed for security reasons',
             })
         }
 
         const filters: FilterQuery<Partial<IOrder>> = {}
+
+        if (!res.locals.user) {
+            return next(new UnauthorizedError('Необходима авторизация'))
+        }
+
+        // Проверка прав доступа
+        if (!res.locals.user.roles.includes('admin')) {
+            filters.customer = res.locals.user._id
+        }
 
         if (status != null) {
             if (typeof status !== 'string') {
@@ -149,7 +152,7 @@ export const getOrders = async (
                 totalOrders,
                 totalPages,
                 currentPage: page,
-                pageSize: limit, // Убедитесь что это поле есть
+                pageSize: limit,
             },
         })
     } catch (error) {
@@ -165,10 +168,9 @@ export const getOrdersCurrentUser = async (
     try {
         const userId = res.locals.user._id
         const { search, page = 1, limit = 5 } = req.query
-        const normalizedLimit = normalizeLimit(limit, 10) // Используем нормализацию
         const options = {
-            skip: (Number(page) - 1) * normalizedLimit,
-            limit: normalizedLimit,
+            skip: (Number(page) - 1) * Number(limit),
+            limit: Number(limit),
         }
 
         const user = await User.findById(userId)
@@ -214,7 +216,7 @@ export const getOrdersCurrentUser = async (
         }
 
         const totalOrders = orders.length
-        const totalPages = Math.ceil(totalOrders / normalizedLimit)
+        const totalPages = Math.ceil(totalOrders / Number(limit))
 
         orders = orders.slice(options.skip, options.skip + options.limit)
 
@@ -224,7 +226,7 @@ export const getOrdersCurrentUser = async (
                 totalOrders,
                 totalPages,
                 currentPage: Number(page),
-                pageSize: normalizedLimit, // Используем normalizedLimit
+                pageSize: Number(limit),
             },
         })
     } catch (error) {
@@ -249,12 +251,11 @@ export const getOrderByNumber = async (
                     )
             )
 
-        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: возвращаем 403 вместо 404
         if (
-            res.locals.user.role !== 'admin' &&
+            !res.locals.user.roles.includes('admin') &&
             !order.customer._id.equals(res.locals.user._id)
         ) {
-            return next(new ForbiddenError('Доступ запрещен'))
+            return res.status(403).json({ error: 'Access denied' })
         }
 
         return res.status(200).json(order)
@@ -283,12 +284,11 @@ export const getOrderCurrentUserByNumber = async (
                         'Заказ по заданному id отсутствует в базе'
                     )
             )
-
-        // КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: возвращаем 403 вместо 404
         if (!order.customer._id.equals(userId)) {
-            return next(new ForbiddenError('Доступ запрещен'))
+            return next(
+                new NotFoundError('Заказ по заданному id отсутствует в базе')
+            )
         }
-
         return res.status(200).json(order)
     } catch (error) {
         if (error instanceof MongooseError.CastError) {
@@ -309,12 +309,6 @@ export const createOrder = async (
         const userId = res.locals.user._id
         const { address, payment, phone, total, email, items, comment } =
             req.body as CreateOrderBody
-
-        // ДОБАВЛЕНА ВАЛИДАЦИЯ ТЕЛЕФОНА
-        const phoneRegex = /^[+]?[0-9\s\-()]{10,15}$/
-        if (!phoneRegex.test(phone)) {
-            return next(new BadRequestError('Неверный формат телефона'))
-        }
 
         const sanitizedComment = comment ? sanitizeHtml(comment) : undefined
         const cleanedPhone = cleanPhone(phone)

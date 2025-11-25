@@ -2,22 +2,11 @@ import { Joi, celebrate } from 'celebrate'
 import { Types } from 'mongoose'
 
 // eslint-disable-next-line no-useless-escape
-export const phoneRegExp = /^[\+]?[0-9\s\-\(\)]{10,15}$/
+export const phoneRegExp = /^[\d\s\-\+\(\)]+$/
 
 export enum PaymentType {
     Card = 'card',
     Online = 'online',
-}
-
-// Функция для базовой санитизации строк
-const sanitizeString = (value: string) => {
-    if (typeof value !== 'string') return value
-    return value
-        .trim()
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/'/g, '&#x27;')
-        .replace(/"/g, '&quot;')
 }
 
 export const validateOrderBody = celebrate({
@@ -45,27 +34,34 @@ export const validateOrderBody = celebrate({
                     'Указано не валидное значение для способа оплаты, возможные значения - "card", "online"',
                 'string.empty': 'Не указан способ оплаты',
             }),
-        email: Joi.string().email().required().custom(sanitizeString).messages({
+        email: Joi.string().email().required().messages({
             'string.empty': 'Не указан email',
             'string.email': 'Неверный формат email',
         }),
-        phone: Joi.string().required().pattern(phoneRegExp).min(10).max(15).custom(sanitizeString).messages({
+        phone: Joi.string().required().pattern(phoneRegExp).min(5).max(20).messages({
             'string.empty': 'Не указан телефон',
             'string.pattern.base': 'Неверный формат телефона',
-            'string.min': 'Телефон слишком короткий',
-            'string.max': 'Телефон слишком длинный',
         }),
-        address: Joi.string().required().max(200).custom(sanitizeString).messages({
+        address: Joi.string().required().max(200).messages({
             'string.empty': 'Не указан адрес',
             'string.max': 'Адрес слишком длинный',
         }),
-        total: Joi.number().required().min(0).max(1000000).messages({
+        total: Joi.number().required().min(0).messages({
             'number.base': 'Не указана сумма заказа',
             'number.min': 'Сумма заказа не может быть отрицательной',
-            'number.max': 'Сумма заказа слишком большая',
         }),
-        comment: Joi.string().optional().allow('').max(500).custom(sanitizeString),
+        comment: Joi.string().optional().allow('').max(500),
     }),
+})
+
+export const validatePagination = celebrate({
+    query: Joi.object({
+        page: Joi.number().integer().min(1).default(1),
+        limit: Joi.number().integer().min(1).max(10).default(10),
+        search: Joi.string().max(100).optional(),
+        sortField: Joi.string().optional(),
+        sortOrder: Joi.string().valid('asc', 'desc').default('desc')
+    })
 })
 
 export const validateProductBody = celebrate({
