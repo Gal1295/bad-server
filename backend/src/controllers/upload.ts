@@ -52,9 +52,17 @@ export const uploadFile = async (
                 message: 'Файл не является валидным изображением',
             })
         }
-        const fileName = process.env.UPLOAD_PATH
-            ? `/${process.env.UPLOAD_PATH}/${filename}`
-            : `/${filename}`
+        const tempDir = process.env.UPLOAD_PATH_TEMP || 'temp'
+        const finalDir = process.env.UPLOAD_PATH || 'images'
+        
+        const tempPath = path.join(__dirname, '..', 'public', tempDir, filename)
+        const finalPath = path.join(__dirname, '..', 'public', finalDir, filename)
+        const finalDirPath = path.join(__dirname, '..', 'public', finalDir)
+        if (!fs.existsSync(finalDirPath)) {
+            fs.mkdirSync(finalDirPath, { recursive: true })
+        }
+        fs.renameSync(tempPath, finalPath)
+        const fileName = `/${finalDir}/${filename}`
             
         return res.status(constants.HTTP_STATUS_CREATED).json({
             fileName,

@@ -74,7 +74,7 @@ export function currentUserAccessMiddleware<T>(
     }
 }
 
-export const adminGuard = (_req: Request, res: Response, next: NextFunction) => { // ✅ ДОБАВИТЬ _ перед req
+export const adminGuard = (_req: Request, res: Response, next: NextFunction) => {
   if (!res.locals.user || !res.locals.user.roles?.includes('admin')) {
     return next(new ForbiddenError('Доступ запрещён'))
   }
