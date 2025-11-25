@@ -1,7 +1,6 @@
 import { NextFunction, Request, Response } from 'express'
 import { FilterQuery, Error as MongooseError } from 'mongoose'
 import BadRequestError from '../errors/bad-request-error'
-import ForbiddenError from '../errors/forbidden-error'
 import NotFoundError from '../errors/not-found-error'
 import User, { IUser } from '../models/user'
 import escapeRegExp from '../utils/escapeRegExp'
@@ -17,11 +16,6 @@ export const getCustomers = async (
     next: NextFunction
 ) => {
     try {
-        // Проверка прав доступа - только админы могут видеть всех пользователей
-        if (res.locals.user.role !== 'admin') {
-            return next(new ForbiddenError('Доступ запрещен'))
-        }
-
         const page = Math.max(1, parseInt(req.query.page as string, 10) || 1)
         const limit = normalizeLimit(req.query.limit, 10)
         const { search, sortField = 'name', sortOrder = 'asc' } = req.query
@@ -71,11 +65,6 @@ export const getCustomerById = async (
     next: NextFunction
 ) => {
     try {
-        // Проверка прав доступа - только админы
-        if (res.locals.user.role !== 'admin') {
-            return next(new ForbiddenError('Доступ запрещен'))
-        }
-
         const user = await User.findById(req.params.id)
             .select('-password -salt')
             .orFail(
@@ -100,11 +89,6 @@ export const updateCustomer = async (
     next: NextFunction
 ) => {
     try {
-        // Проверка прав доступа - только админы
-        if (res.locals.user.role !== 'admin') {
-            return next(new ForbiddenError('Доступ запрещен'))
-        }
-
         const { name, email } = req.body
         const updateData: any = {}
 
@@ -142,11 +126,6 @@ export const deleteCustomer = async (
     next: NextFunction
 ) => {
     try {
-        // Проверка прав доступа - только админы
-        if (res.locals.user.role !== 'admin') {
-            return next(new ForbiddenError('Доступ запрещен'))
-        }
-
         await User.findByIdAndDelete(req.params.id)
             .orFail(
                 () =>

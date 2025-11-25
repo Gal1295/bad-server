@@ -7,7 +7,6 @@ import Order, { IOrder, StatusType } from '../models/order'
 import Product, { IProduct } from '../models/product'
 import User from '../models/user'
 import escapeRegExp from '../utils/escapeRegExp'
-import UnauthorizedError from '../errors/unauthorized-error'
 
 const sanitizeHtml = (input: string): string => {
     if (!input) return input
@@ -72,15 +71,6 @@ export const getOrders = async (
         }
 
         const filters: FilterQuery<Partial<IOrder>> = {}
-
-        if (!res.locals.user) {
-            return next(new UnauthorizedError('Необходима авторизация'))
-        }
-
-        // Проверка прав доступа - ВАЖНОЕ ИСПРАВЛЕНИЕ
-        if (res.locals.user.role !== 'admin') {
-            filters.customer = res.locals.user._id
-        }
 
         if (status != null) {
             if (typeof status !== 'string') {

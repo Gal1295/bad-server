@@ -68,16 +68,6 @@ export const validateOrderBody = celebrate({
     }),
 })
 
-export const validatePagination = celebrate({
-    query: Joi.object({
-        page: Joi.number().integer().min(1).default(1),
-        limit: Joi.number().integer().min(1).max(100).default(10),
-        search: Joi.string().max(100).optional().allow(''),
-        sortField: Joi.string().optional().allow(''),
-        sortOrder: Joi.string().valid('asc', 'desc').default('desc')
-    })
-})
-
 export const validateProductBody = celebrate({
     body: Joi.object().keys({
         title: Joi.string().required().min(2).max(30).messages({
