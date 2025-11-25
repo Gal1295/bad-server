@@ -1,6 +1,5 @@
 import { NextFunction, Request, Response } from 'express'
 import { constants } from 'http2'
-import fs from 'fs'
 import BadRequestError from '../errors/bad-request-error'
 
 export const uploadFile = async (
@@ -13,49 +12,15 @@ export const uploadFile = async (
     }
 
     try {
-        if (req.file.size < 2048) {
-            throw new BadRequestError('Размер файла должен быть не менее 2KB')
-        }
-
-        const allowedImageTypes = [
-            'image/png',
-            'image/jpeg', 
-            'image/jpg',
-            'image/gif',
-            'image/webp',
-            'image/svg+xml',
-        ]
-
-        if (!allowedImageTypes.includes(req.file.mimetype)) {
-            throw new BadRequestError('Файл не является валидным изображением')
-        }
-
-        const fileName = `/${process.env.UPLOAD_PATH_TEMP || 'temp'}/${req.file.filename}`
-
-        if (fileName.includes('..') || fileName.includes('//')) {
-            throw new BadRequestError('Некорректный путь к файлу')
-        }
+        // Просто возвращаем имя файла, но в images папке (как в других частях проекта)
+        // Multer уже сохранил файл в temp с уникальным именем
+        const fileName = `/images/${req.file.filename}`
+        
         return res.status(constants.HTTP_STATUS_CREATED).json({
             fileName,
         })
     } catch (error) {
-        if (req.file?.path) {
-            try {
-                fs.unlinkSync(req.file.path)
-            } catch (err) {
-                console.error('Ошибка удаления файла:', err)
-            }
-        }
-
-        if (error instanceof BadRequestError) {
-            return next(error)
-        }
-
-        return next(
-            new BadRequestError(
-                error instanceof Error ? error.message : 'Ошибка загрузки файла'
-            )
-        )
+        return next(error)
     }
 }
 
