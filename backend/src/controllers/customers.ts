@@ -1,17 +1,16 @@
 import { NextFunction, Request, Response } from 'express'
-import { FilterQuery } from 'mongoose'
+import { FilterQuery, Error as MongooseError } from 'mongoose'
+import BadRequestError from '../errors/bad-request-error'
+import ForbiddenError from '../errors/forbidden-error'
 import NotFoundError from '../errors/not-found-error'
 import User, { IUser } from '../models/user'
 import escapeRegExp from '../utils/escapeRegExp'
 
-// Функции безопасности
 const normalizeLimit = (limit: any, max = 10): number => {
     const parsed = parseInt(limit as string, 10)
     return Math.min(Number.isNaN(parsed) ? max : parsed, max)
 }
 
-// eslint-disable-next-line max-len
-// GET /customers?page=2&limit=5&sort=totalAmount&order=desc&registrationDateFrom=2023-01-01&registrationDateTo=2023-12-31&lastOrderDateFrom=2023-01-01&lastOrderDateTo=2023-12-31&totalAmountFrom=100&totalAmountTo=1000&orderCountFrom=1&orderCountTo=10
 export const getCustomers = async (
     req: Request,
     res: Response,
@@ -20,96 +19,18 @@ export const getCustomers = async (
     try {
         // Проверка прав доступа - только админы могут видеть всех пользователей
         if (res.locals.user.role !== 'admin') {
-            return res.status(403).json({ error: 'Access denied' })
+            return next(new ForbiddenError('Доступ запрещен'))
         }
 
-        const {
-            page = 1,
-            limit = 10,
-            sortField = 'createdAt',
-            sortOrder = 'desc',
-            registrationDateFrom,
-            registrationDateTo,
-            lastOrderDateFrom,
-            lastOrderDateTo,
-            totalAmountFrom,
-            totalAmountTo,
-            orderCountFrom,
-            orderCountTo,
-            search,
-        } = req.query
-
-        // ПРИМЕНЯЕМ нормализацию лимита
-        const normalizedLimit = normalizeLimit(limit, 10)
-        const normalizedPage = Math.max(parseInt(page as string, 10) || 1, 1)
+        const page = Math.max(1, parseInt(req.query.page as string, 10) || 1)
+        const limit = normalizeLimit(req.query.limit, 10)
+        const { search, sortField = 'name', sortOrder = 'asc' } = req.query
 
         const filters: FilterQuery<Partial<IUser>> = {}
 
-        if (registrationDateFrom) {
-            filters.createdAt = {
-                ...filters.createdAt,
-                $gte: new Date(registrationDateFrom as string),
-            }
-        }
-
-        if (registrationDateTo) {
-            const endOfDay = new Date(registrationDateTo as string)
-            endOfDay.setHours(23, 59, 59, 999)
-            filters.createdAt = {
-                ...filters.createdAt,
-                $lte: endOfDay,
-            }
-        }
-
-        if (lastOrderDateFrom) {
-            filters.lastOrderDate = {
-                ...filters.lastOrderDate,
-                $gte: new Date(lastOrderDateFrom as string),
-            }
-        }
-
-        if (lastOrderDateTo) {
-            const endOfDay = new Date(lastOrderDateTo as string)
-            endOfDay.setHours(23, 59, 59, 999)
-            filters.lastOrderDate = {
-                ...filters.lastOrderDate,
-                $lte: endOfDay,
-            }
-        }
-
-        if (totalAmountFrom) {
-            filters.totalAmount = {
-                ...filters.totalAmount,
-                $gte: Number(totalAmountFrom),
-            }
-        }
-
-        if (totalAmountTo) {
-            filters.totalAmount = {
-                ...filters.totalAmount,
-                $lte: Number(totalAmountTo),
-            }
-        }
-
-        if (orderCountFrom) {
-            filters.orderCount = {
-                ...filters.orderCount,
-                $gte: Number(orderCountFrom),
-            }
-        }
-
-        if (orderCountTo) {
-            filters.orderCount = {
-                ...filters.orderCount,
-                $lte: Number(orderCountTo),
-            }
-        }
-
-        // Используем escapeRegExp для безопасного поиска
-        if (search) {
-            const escapedSearch = escapeRegExp(search as string)
+        if (search && typeof search === 'string') {
+            const escapedSearch = escapeRegExp(search)
             const searchRegex = new RegExp(escapedSearch, 'i')
-            
             filters.$or = [
                 { name: searchRegex },
                 { email: searchRegex }
@@ -117,42 +38,26 @@ export const getCustomers = async (
         }
 
         const sort: { [key: string]: any } = {}
-
         if (sortField && sortOrder) {
             sort[sortField as string] = sortOrder === 'desc' ? -1 : 1
         }
 
         const users = await User.find(filters)
             .select('-password -salt')
-            .populate([
-                'orders',
-                {
-                    path: 'lastOrder',
-                    populate: {
-                        path: 'products',
-                    },
-                },
-                {
-                    path: 'lastOrder',
-                    populate: {
-                        path: 'customer',
-                    },
-                },
-            ])
             .sort(sort)
-            .limit(normalizedLimit)
-            .skip((normalizedPage - 1) * normalizedLimit)
+            .skip((page - 1) * limit)
+            .limit(limit)
 
         const totalUsers = await User.countDocuments(filters)
-        const totalPages = Math.ceil(totalUsers / normalizedLimit)
+        const totalPages = Math.ceil(totalUsers / limit)
 
         res.status(200).json({
-            customers: users,
+            users,
             pagination: {
                 totalUsers,
                 totalPages,
-                currentPage: normalizedPage,
-                pageSize: normalizedLimit,
+                currentPage: page,
+                pageSize: limit,
             },
         })
     } catch (error) {
@@ -160,56 +65,56 @@ export const getCustomers = async (
     }
 }
 
-// Get /customers/:id
 export const getCustomerById = async (
     req: Request,
     res: Response,
     next: NextFunction
 ) => {
     try {
-        // Проверка прав доступа - только админы могут видеть других пользователей
+        // Проверка прав доступа - только админы
         if (res.locals.user.role !== 'admin') {
-            return res.status(403).json({ error: 'Access denied' })
+            return next(new ForbiddenError('Доступ запрещен'))
         }
 
         const user = await User.findById(req.params.id)
             .select('-password -salt')
-            .populate([
-                'orders',
-                'lastOrder',
-            ])
             .orFail(
                 () =>
                     new NotFoundError(
                         'Пользователь по заданному id отсутствует в базе'
                     )
             )
-        
-        res.status(200).json(user)
+
+        return res.status(200).json(user)
     } catch (error) {
-        next(error)
+        if (error instanceof MongooseError.CastError) {
+            return next(new BadRequestError('Передан не валидный ID пользователя'))
+        }
+        return next(error)
     }
 }
 
-// Patch /customers/:id
 export const updateCustomer = async (
     req: Request,
     res: Response,
     next: NextFunction
 ) => {
     try {
-        // Проверка прав доступа - только админы могут обновлять других пользователей
+        // Проверка прав доступа - только админы
         if (res.locals.user.role !== 'admin') {
-            return res.status(403).json({ error: 'Access denied' })
+            return next(new ForbiddenError('Доступ запрещен'))
         }
+
+        const { name, email } = req.body
+        const updateData: any = {}
+
+        if (name) updateData.name = name
+        if (email) updateData.email = email
 
         const updatedUser = await User.findByIdAndUpdate(
             req.params.id,
-            req.body,
-            {
-                new: true,
-                runValidators: true,
-            }
+            updateData,
+            { new: true, runValidators: true }
         )
             .select('-password -salt')
             .orFail(
@@ -218,35 +123,43 @@ export const updateCustomer = async (
                         'Пользователь по заданному id отсутствует в базе'
                     )
             )
-            .populate(['orders', 'lastOrder'])
-        res.status(200).json(updatedUser)
+
+        return res.status(200).json(updatedUser)
     } catch (error) {
-        next(error)
+        if (error instanceof MongooseError.ValidationError) {
+            return next(new BadRequestError(error.message))
+        }
+        if (error instanceof MongooseError.CastError) {
+            return next(new BadRequestError('Передан не валидный ID пользователя'))
+        }
+        return next(error)
     }
 }
 
-// Delete /customers/:id
 export const deleteCustomer = async (
     req: Request,
     res: Response,
     next: NextFunction
 ) => {
     try {
-        // Проверка прав доступа - только админы могут удалять пользователей
+        // Проверка прав доступа - только админы
         if (res.locals.user.role !== 'admin') {
-            return res.status(403).json({ error: 'Access denied' })
+            return next(new ForbiddenError('Доступ запрещен'))
         }
 
-        const deletedUser = await User.findByIdAndDelete(req.params.id)
-            .select('-password -salt')
+        await User.findByIdAndDelete(req.params.id)
             .orFail(
                 () =>
                     new NotFoundError(
                         'Пользователь по заданному id отсутствует в базе'
                     )
             )
-        res.status(200).json(deletedUser)
+
+        return res.status(200).json({ message: 'Пользователь удален' })
     } catch (error) {
-        next(error)
+        if (error instanceof MongooseError.CastError) {
+            return next(new BadRequestError('Передан не валидный ID пользователя'))
+        }
+        return next(error)
     }
 }
