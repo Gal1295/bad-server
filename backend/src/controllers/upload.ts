@@ -12,8 +12,7 @@ export const uploadFile = async (
     }
 
     try {
-        const fileName = `/images/${req.file.filename}`
-        
+        const fileName = `/${process.env.UPLOAD_PATH || 'images'}/${req.file.filename}`
         return res.status(constants.HTTP_STATUS_CREATED).json({
             fileName,
         })
