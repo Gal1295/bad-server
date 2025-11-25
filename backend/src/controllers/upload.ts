@@ -16,11 +16,11 @@ export const uploadFile = async (
         const fileExtension = path.extname(req.file.originalname)
         const uniqueFileName = `${uuidv4()}${fileExtension}`
         
-        const fileName = `/${uniqueFileName}`
-            
-        return res.status(constants.HTTP_STATUS_CREATED).send({
-            fileName,
-            fileId: uniqueFileName
+        return res.status(constants.HTTP_STATUS_CREATED).json({
+            fileName: uniqueFileName,
+            fileId: uniqueFileName,
+            success: true,
+            message: 'Файл успешно загружен'
         })
     } catch (error) {
         return next(error)

@@ -57,6 +57,7 @@ export function roleGuardMiddleware(...roles: Role[]) {
     }
 }
 
+// ИСПРАВЛЕННАЯ ФУНКЦИЯ - возвращаем правильные статусы
 export function currentUserAccessMiddleware<T>(
     model: Model<T>,
     idProperty: string,
@@ -69,26 +70,34 @@ export function currentUserAccessMiddleware<T>(
             return next(new UnauthorizedError('Необходима авторизация'))
         }
 
+        // Админы имеют доступ ко всему
         if (res.locals.user.roles.includes(Role.Admin)) {
             return next()
         }
 
-        const entity = await model.findById(id)
+        try {
+            const entity = await model.findById(id)
 
-        if (!entity) {
+            if (!entity) {
+                return next(new NotFoundError('Не найдено'))
+            }
+
+            const userEntityId = entity[userProperty] as Types.ObjectId
+            
+            // Проверяем принадлежность ресурса пользователю
+            const hasAccess = new Types.ObjectId(res.locals.user.id).equals(
+                userEntityId
+            )
+
+            if (!hasAccess) {
+                // ВАЖНО: возвращаем 403 вместо 404 при отсутствии прав
+                return next(new ForbiddenError('Доступ запрещен'))
+            }
+
+            return next()
+        } catch (error) {
             return next(new NotFoundError('Не найдено'))
         }
-
-        const userEntityId = entity[userProperty] as Types.ObjectId
-        const hasAccess = new Types.ObjectId(res.locals.user.id).equals(
-            userEntityId
-        )
-
-        if (!hasAccess) {
-            return next(new ForbiddenError('Доступ запрещен'))
-        }
-
-        return next()
     }
 }
 

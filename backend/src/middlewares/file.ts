@@ -12,15 +12,14 @@ const storage = multer.diskStorage({
         _file: Express.Multer.File,
         cb: DestinationCallback
     ) => {
-        cb(
-            null,
-            join(
-                __dirname,
-                process.env.UPLOAD_PATH_TEMP
-                    ? `../public/${process.env.UPLOAD_PATH_TEMP}`
-                    : '../public'
-            )
+        const uploadDir = join(
+            __dirname,
+            process.env.UPLOAD_PATH_TEMP
+                ? `../public/${process.env.UPLOAD_PATH_TEMP}`
+                : '../public'
         )
+        
+        cb(null, uploadDir)
     },
 
     filename: (
@@ -28,19 +27,22 @@ const storage = multer.diskStorage({
         file: Express.Multer.File,
         cb: FileNameCallback
     ) => {
-        const fileExtension = file.originalname.split('.').pop() || ''
+        // Генерируем безопасное имя файла без оригинального имени
+        const fileExtension = file.originalname.split('.').pop()?.toLowerCase() || ''
         const uniqueId = crypto.randomBytes(16).toString('hex')
         const uniqueFileName = `${uniqueId}.${fileExtension}`
         cb(null, uniqueFileName)
     },
 })
 
-const types = [
+// Разрешенные MIME типы
+const allowedMimeTypes = [
     'image/png',
     'image/jpg',
     'image/jpeg',
     'image/gif',
     'image/svg+xml',
+    'image/webp'
 ]
 
 const fileFilter = (
@@ -48,18 +50,42 @@ const fileFilter = (
     file: Express.Multer.File,
     cb: FileFilterCallback
 ) => {
-    if (!types.includes(file.mimetype)) {
-        return cb(null, false)
+    // Проверяем MIME тип
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+        return cb(new Error('Недопустимый тип файла. Разрешены только изображения.'))
+    }
+
+    // Дополнительная проверка расширения
+    const fileExtension = file.originalname.split('.').pop()?.toLowerCase()
+    const allowedExtensions = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp']
+    
+    if (!fileExtension || !allowedExtensions.includes(fileExtension)) {
+        return cb(new Error('Недопустимое расширение файла'))
     }
 
     return cb(null, true)
+}
+
+// Обработчик ошибок multer
+export const handleMulterError = (err: any, _req: Request, res: any, next: any) => {
+    if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({ message: 'Файл слишком большой' })
+        }
+        if (err.code === 'LIMIT_FILE_COUNT') {
+            return res.status(400).json({ message: 'Слишком много файлов' })
+        }
+    } else if (err) {
+        return res.status(400).json({ message: err.message })
+    }
+    next(err)
 }
 
 export default multer({
     storage,
     fileFilter,
     limits: {
-        fileSize: 10 * 1024 * 1024,
+        fileSize: 10 * 1024 * 1024, // 10MB
         files: 1
     }
 })
