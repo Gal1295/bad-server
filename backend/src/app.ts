@@ -15,8 +15,8 @@ const { PORT = 3000 } = process.env
 const app = express()
 
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 50, // уменьшаем лимит для тестирования
+    windowMs: 15 * 60 * 1000,
+    max: 50,
     message: 'Too many requests from this IP',
     standardHeaders: true,
     legacyHeaders: false,

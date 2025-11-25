@@ -70,7 +70,6 @@ export const getOrders = async (
             return next(new UnauthorizedError('Необходима авторизация'))
         }
 
-        // Проверка прав доступа
         if (!res.locals.user.roles.includes('admin')) {
             filters.customer = res.locals.user._id
         }

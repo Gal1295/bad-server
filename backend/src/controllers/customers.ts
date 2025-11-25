@@ -4,7 +4,6 @@ import NotFoundError from '../errors/not-found-error'
 import User, { IUser } from '../models/user'
 import escapeRegExp from '../utils/escapeRegExp'
 
-// Функции безопасности
 const normalizeLimit = (limit: any, max = 10): number => {
     const parsed = parseInt(limit as string, 10)
     return Math.min(Number.isNaN(parsed) ? max : parsed, max)
@@ -18,7 +17,6 @@ export const getCustomers = async (
     next: NextFunction
 ) => {
     try {
-        // Проверка прав доступа - только админы могут видеть всех пользователей
         if (!res.locals.user.roles.includes('admin')) {
             return res.status(403).json({ error: 'Access denied' })
         }
@@ -39,7 +37,6 @@ export const getCustomers = async (
             search,
         } = req.query
 
-        // ПРИМЕНЯЕМ нормализацию лимита
         const normalizedLimit = normalizeLimit(limit, 10)
         const normalizedPage = Math.max(parseInt(page as string, 10) || 1, 1)
 
@@ -105,15 +102,11 @@ export const getCustomers = async (
             }
         }
 
-        // Используем escapeRegExp для безопасного поиска
         if (search) {
             const escapedSearch = escapeRegExp(search as string)
             const searchRegex = new RegExp(escapedSearch, 'i')
-            
-            filters.$or = [
-                { name: searchRegex },
-                { email: searchRegex }
-            ]
+
+            filters.$or = [{ name: searchRegex }, { email: searchRegex }]
         }
 
         const sort: { [key: string]: any } = {}
@@ -160,45 +153,38 @@ export const getCustomers = async (
     }
 }
 
-// Get /customers/:id
 export const getCustomerById = async (
     req: Request,
     res: Response,
     next: NextFunction
 ) => {
     try {
-        // Проверка прав доступа - только админы могут видеть других пользователей
         if (!res.locals.user.roles.includes('admin')) {
             return res.status(403).json({ error: 'Access denied' })
         }
 
         const user = await User.findById(req.params.id)
             .select('-password -salt')
-            .populate([
-                'orders',
-                'lastOrder',
-            ])
+            .populate(['orders', 'lastOrder'])
             .orFail(
                 () =>
                     new NotFoundError(
                         'Пользователь по заданному id отсутствует в базе'
                     )
             )
-        
+
         res.status(200).json(user)
     } catch (error) {
         next(error)
     }
 }
 
-// Patch /customers/:id
 export const updateCustomer = async (
     req: Request,
     res: Response,
     next: NextFunction
 ) => {
     try {
-        // Проверка прав доступа - только админы могут обновлять других пользователей
         if (!res.locals.user.roles.includes('admin')) {
             return res.status(403).json({ error: 'Access denied' })
         }
@@ -225,14 +211,12 @@ export const updateCustomer = async (
     }
 }
 
-// Delete /customers/:id
 export const deleteCustomer = async (
     req: Request,
     res: Response,
     next: NextFunction
 ) => {
     try {
-        // Проверка прав доступа - только админы могут удалять пользователей
         if (!res.locals.user.roles.includes('admin')) {
             return res.status(403).json({ error: 'Access denied' })
         }
