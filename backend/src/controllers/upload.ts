@@ -1,9 +1,10 @@
 import { NextFunction, Request, Response } from 'express'
 import { constants } from 'http2'
 import fs from 'fs'
+import { fileTypeFromFile } from 'file-type'
 import BadRequestError from '../errors/bad-request-error'
 
-const MIN_FILE_SIZE = 2 * 1024 
+const MIN_FILE_SIZE = 2 * 1024
 const MAX_FILE_SIZE = 10 * 1024 * 1024
 
 export const uploadFile = async (
@@ -15,31 +16,31 @@ export const uploadFile = async (
         return next(new BadRequestError('Файл не загружен'))
     }
 
-    const { size, filename, mimetype } = req.file
+    const { size, filename, path: filePath } = req.file
     if (size < MIN_FILE_SIZE) {
-        const filePath = req.file.path;
         if (filePath) {
-            fs.unlink(filePath, (err) => {
-                if (err) console.error('Ошибка при удалении файла:', err);
-            });
+            fs.unlink(filePath, (unlinkErr) => {
+                if (unlinkErr)
+                    console.error('Ошибка при удалении файла:', unlinkErr)
+            })
         }
         return res.status(400).json({
             success: false,
             message: `Файл слишком маленький. Минимальный размер: ${MIN_FILE_SIZE} байт`,
-        });
+        })
     }
 
     if (size > MAX_FILE_SIZE) {
-        const filePath = req.file.path;
         if (filePath) {
-            fs.unlink(filePath, (err) => {
-                if (err) console.error('Ошибка при удалении файла:', err);
-            });
+            fs.unlink(filePath, (unlinkErr) => {
+                if (unlinkErr)
+                    console.error('Ошибка при удалении файла:', unlinkErr)
+            })
         }
         return res.status(400).json({
             success: false,
             message: `Файл слишком большой. Максимальный размер: ${MAX_FILE_SIZE} байт`,
-        });
+        })
     }
     const allowedImageTypes = [
         'image/png',
@@ -48,19 +49,60 @@ export const uploadFile = async (
         'image/gif',
         'image/webp',
         'image/svg+xml',
-    ];
+    ]
 
-    if (!allowedImageTypes.includes(mimetype)) {
-        const filePath = req.file.path;
+    const mimeType = req.file.mimetype
+    if (!mimeType || !allowedImageTypes.includes(mimeType)) {
         if (filePath) {
-            fs.unlink(filePath, (err) => {
-                if (err) console.error('Ошибка при удалении файла:', err);
-            });
+            fs.unlink(filePath, (unlinkErr) => {
+                if (unlinkErr)
+                    console.error('Ошибка при удалении файла:', unlinkErr)
+            })
         }
         return res.status(400).json({
             success: false,
-            message: 'Файл не является валидным изображением',
-        });
+            message: 'Файл не является валидным изображением (mimetype).',
+        })
+    }
+    try {
+        const detectedType = await fileTypeFromFile(filePath)
+        if (!detectedType) {
+            if (filePath) {
+                fs.unlink(filePath, (unlinkErr) => {
+                    if (unlinkErr)
+                        console.error('Ошибка при удалении файла:', unlinkErr)
+                })
+            }
+            return res.status(400).json({
+                success: false,
+                message:
+                    'Файл не является валидным изображением (неопознанный тип).',
+            })
+        }
+        if (!allowedImageTypes.includes(detectedType.mime)) {
+            if (filePath) {
+                fs.unlink(filePath, (unlinkErr) => {
+                    if (unlinkErr)
+                        console.error('Ошибка при удалении файла:', unlinkErr)
+                })
+            }
+            return res.status(400).json({
+                success: false,
+                message: `Файл не является валидным изображением (недопустимый тип: ${detectedType.mime}).`,
+            })
+        }
+    } catch (err) {
+        console.error('Ошибка при определении типа файла:', err)
+        if (filePath) {
+            fs.unlink(filePath, (unlinkErr) => {
+                if (unlinkErr)
+                    console.error('Ошибка при удалении файла:', unlinkErr)
+            })
+        }
+        return res.status(500).json({
+            success: false,
+            message: 'Ошибка при проверке файла.',
+        })
     }
 
     try {
@@ -70,11 +112,11 @@ export const uploadFile = async (
             fileName,
         })
     } catch (error) {
-        const filePath = req.file.path;
         if (filePath) {
-            fs.unlink(filePath, (err) => {
-                if (err) console.error('Ошибка при удалении файла:', err);
-            });
+            fs.unlink(filePath, (unlinkErr) => {
+                if (unlinkErr)
+                    console.error('Ошибка при удалении файла:', unlinkErr)
+            })
         }
         return next(error)
     }
