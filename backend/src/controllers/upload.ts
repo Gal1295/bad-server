@@ -13,23 +13,13 @@ export const uploadFile = async (
         return next(new BadRequestError('Файл не загружен'))
     }
     try {
-        // Генерируем уникальное имя файла вместо использования оригинального
         const fileExtension = path.extname(req.file.originalname)
         const uniqueFileName = `${uuidv4()}${fileExtension}`
         
-        // В реальном приложении здесь должна быть логика переименования файла
-        // или сохранения с уникальным именем. Поскольку multer уже сохранил файл
-        // с сгенерированным именем (req.file.filename), мы можем использовать его
-        
-        // Но для безопасности возвращаем уникальное имя, а не оригинальное
-        const fileName = process.env.UPLOAD_PATH
-            ? `/${process.env.UPLOAD_PATH}/${uniqueFileName}`
-            : `/${uniqueFileName}`
+        const fileName = `/${uniqueFileName}`
             
         return res.status(constants.HTTP_STATUS_CREATED).send({
             fileName,
-            originalName: req.file.originalname,
-            // Дополнительно возвращаем уникальный идентификатор для безопасности
             fileId: uniqueFileName
         })
     } catch (error) {
@@ -37,4 +27,4 @@ export const uploadFile = async (
     }
 }
 
-export default {}
+export default { uploadFile }

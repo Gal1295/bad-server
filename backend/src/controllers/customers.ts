@@ -1,7 +1,6 @@
 import { NextFunction, Request, Response } from 'express'
 import { FilterQuery } from 'mongoose'
 import NotFoundError from '../errors/not-found-error'
-import Order from '../models/order'
 import User, { IUser } from '../models/user'
 import escapeRegExp from '../utils/escapeRegExp'
 
@@ -110,18 +109,10 @@ export const getCustomers = async (
         if (search) {
             const escapedSearch = escapeRegExp(search as string)
             const searchRegex = new RegExp(escapedSearch, 'i')
-            const orders = await Order.find(
-                {
-                    $or: [{ deliveryAddress: searchRegex }],
-                },
-                '_id'
-            )
-
-            const orderIds = orders.map((order) => order._id)
-
+            
             filters.$or = [
                 { name: searchRegex },
-                { lastOrder: { $in: orderIds } },
+                { email: searchRegex }
             ]
         }
 
@@ -132,7 +123,7 @@ export const getCustomers = async (
         }
 
         const users = await User.find(filters)
-            .select('-password')
+            .select('-password -salt')
             .populate([
                 'orders',
                 {
@@ -149,7 +140,7 @@ export const getCustomers = async (
                 },
             ])
             .sort(sort)
-            .limit(normalizedLimit) // Используем нормализованный лимит
+            .limit(normalizedLimit)
             .skip((normalizedPage - 1) * normalizedLimit)
 
         const totalUsers = await User.countDocuments(filters)
@@ -161,7 +152,7 @@ export const getCustomers = async (
                 totalUsers,
                 totalPages,
                 currentPage: normalizedPage,
-                pageSize: normalizedLimit, // Возвращаем нормализованный лимит
+                pageSize: normalizedLimit,
             },
         })
     } catch (error) {
@@ -182,7 +173,7 @@ export const getCustomerById = async (
         }
 
         const user = await User.findById(req.params.id)
-            .select('-password')
+            .select('-password -salt')
             .populate([
                 'orders',
                 'lastOrder',
@@ -220,7 +211,7 @@ export const updateCustomer = async (
                 runValidators: true,
             }
         )
-            .select('-password')
+            .select('-password -salt')
             .orFail(
                 () =>
                     new NotFoundError(
@@ -247,7 +238,7 @@ export const deleteCustomer = async (
         }
 
         const deletedUser = await User.findByIdAndDelete(req.params.id)
-            .select('-password')
+            .select('-password -salt')
             .orFail(
                 () =>
                     new NotFoundError(
