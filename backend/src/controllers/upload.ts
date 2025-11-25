@@ -1,8 +1,7 @@
 import { NextFunction, Request, Response } from 'express'
 import { constants } from 'http2'
-import path from 'path'
+import fs from 'fs'
 import BadRequestError from '../errors/bad-request-error'
-import movingFile from '../utils/movingFile'
 
 export const uploadFile = async (
     req: Request,
@@ -14,21 +13,49 @@ export const uploadFile = async (
     }
 
     try {
-        await movingFile(
-            req.file.filename,
-            path.join(__dirname, `../public/${process.env.UPLOAD_PATH_TEMP}`),
-            path.join(__dirname, `../public/${process.env.UPLOAD_PATH}`)
-        )
+        if (req.file.size < 2048) {
+            throw new BadRequestError('Размер файла должен быть не менее 2KB')
+        }
 
-        const fileName = process.env.UPLOAD_PATH
-            ? `/${process.env.UPLOAD_PATH}/${req.file.filename}`
-            : `/${req.file.filename}`
-            
+        const allowedImageTypes = [
+            'image/png',
+            'image/jpeg', 
+            'image/jpg',
+            'image/gif',
+            'image/webp',
+            'image/svg+xml',
+        ]
+
+        if (!allowedImageTypes.includes(req.file.mimetype)) {
+            throw new BadRequestError('Файл не является валидным изображением')
+        }
+
+        const fileName = `/${process.env.UPLOAD_PATH_TEMP || 'temp'}/${req.file.filename}`
+
+        if (fileName.includes('..') || fileName.includes('//')) {
+            throw new BadRequestError('Некорректный путь к файлу')
+        }
         return res.status(constants.HTTP_STATUS_CREATED).json({
             fileName,
         })
     } catch (error) {
-        return next(error)
+        if (req.file?.path) {
+            try {
+                fs.unlinkSync(req.file.path)
+            } catch (err) {
+                console.error('Ошибка удаления файла:', err)
+            }
+        }
+
+        if (error instanceof BadRequestError) {
+            return next(error)
+        }
+
+        return next(
+            new BadRequestError(
+                error instanceof Error ? error.message : 'Ошибка загрузки файла'
+            )
+        )
     }
 }
 
