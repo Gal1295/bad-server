@@ -3,6 +3,6 @@ import { uploadFile } from '../controllers/upload'
 import fileMiddleware from '../middlewares/file'
 
 const uploadRouter = Router()
-uploadRouter.post('/', fileMiddleware.single('file'), uploadFile)
+uploadRouter.post('/', fileMiddleware.any(), uploadFile)
 
 export default uploadRouter
