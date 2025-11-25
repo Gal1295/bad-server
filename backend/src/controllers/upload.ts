@@ -7,12 +7,15 @@ export const uploadFile = async (
     res: Response,
     next: NextFunction
 ) => {
-    if (!req.file) {
+    const file = req.file || (req.files && Array.isArray(req.files) ? req.files[0] : null) || 
+                 (req.files && typeof req.files === 'object' ? Object.values(req.files)[0] : null)
+
+    if (!file) {
         return next(new BadRequestError('Файл не загружен'))
     }
 
     try {
-        const fileName = `/${req.file.filename}`
+        const fileName = `/${file.filename}`
         
         return res.status(constants.HTTP_STATUS_CREATED).json({
             fileName,
