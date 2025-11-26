@@ -49,11 +49,10 @@ const userSchema = new mongoose.Schema<IUser, IUserModel, IUserMethods>(
             minlength: [2, 'Минимальная длина поля "name" - 2'],
             maxlength: [30, 'Максимальная длина поля "name" - 30'],
         },
-        // в схеме пользователя есть обязательные email и password
         email: {
             type: String,
             required: [true, 'Поле "email" должно быть заполнено'],
-            unique: true, // поле email уникально (есть опция unique: true);
+            unique: true,
             validate: {
                 // для проверки email студенты используют validator
                 validator: (v: string) => validator.isEmail(v),
@@ -106,11 +105,12 @@ const userSchema = new mongoose.Schema<IUser, IUserModel, IUserMethods>(
         toJSON: {
             virtuals: true,
             transform: (_doc, ret) => {
-                delete ret.tokens
-                delete ret.password
-                delete ret._id
-                delete ret.roles
-                return ret
+                const r = ret as any;
+                delete r.tokens;
+                delete r.password;
+                delete r._id;
+                delete r.roles;
+                return ret;
             },
         },
     }
@@ -132,7 +132,6 @@ userSchema.pre('save', async function hashingPassword(next) {
 
 userSchema.methods.generateAccessToken = function generateAccessToken() {
     const user = this
-    // Создание accessToken токена возможно в контроллере авторизации
     return jwt.sign(
         {
             _id: user._id.toString(),
@@ -149,7 +148,6 @@ userSchema.methods.generateAccessToken = function generateAccessToken() {
 userSchema.methods.generateRefreshToken =
     async function generateRefreshToken() {
         const user = this
-        // Создание refresh токена возможно в контроллере авторизации/регистрации
         const refreshToken = jwt.sign(
             {
                 _id: user._id.toString(),

@@ -8,7 +8,6 @@ import NotFoundError from '../errors/not-found-error'
 import Product from '../models/product'
 import movingFile from '../utils/movingFile'
 
-// GET /product
 const getProducts = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { page = 1, limit = 5 } = req.query
@@ -33,7 +32,6 @@ const getProducts = async (req: Request, res: Response, next: NextFunction) => {
     }
 }
 
-// POST /product
 const createProduct = async (
     req: Request,
     res: Response,
@@ -41,8 +39,6 @@ const createProduct = async (
 ) => {
     try {
         const { description, category, price, title, image } = req.body
-
-        // Переносим картинку из временной папки
         if (image) {
             movingFile(
                 image.fileName,
@@ -72,8 +68,6 @@ const createProduct = async (
     }
 }
 
-// TODO: Добавить guard admin
-// PUT /product
 const updateProduct = async (
     req: Request,
     res: Response,
@@ -82,8 +76,6 @@ const updateProduct = async (
     try {
         const { productId } = req.params
         const { image } = req.body
-
-        // Переносим картинку из временной папки
         if (image) {
             movingFile(
                 image.fileName,
@@ -120,8 +112,6 @@ const updateProduct = async (
     }
 }
 
-// TODO: Добавить guard admin
-// DELETE /product
 const deleteProduct = async (
     req: Request,
     res: Response,

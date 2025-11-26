@@ -15,9 +15,9 @@ const storage = multer.diskStorage({
             null,
             join(
                 __dirname,
-                process.env.UPLOAD_PATH_TEMP
-                    ? `../public/${process.env.UPLOAD_PATH_TEMP}`
-                    : '../public'
+                process.env.UPLOAD_PATH
+                    ? `../public/${process.env.UPLOAD_PATH}`
+                    : '../public/images'
             )
         )
     },
@@ -27,7 +27,10 @@ const storage = multer.diskStorage({
         file: Express.Multer.File,
         cb: FileNameCallback
     ) => {
-        cb(null, file.originalname)
+        const fileExtension =
+            file.originalname.split('.').pop()?.toLowerCase() || 'bin'
+        const uniqueFileName = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${fileExtension}`
+        cb(null, uniqueFileName)
     },
 })
 
@@ -47,8 +50,14 @@ const fileFilter = (
     if (!types.includes(file.mimetype)) {
         return cb(null, false)
     }
-
     return cb(null, true)
 }
 
-export default multer({ storage, fileFilter })
+export default multer({
+    storage,
+    fileFilter,
+    limits: {
+        fileSize: 10 * 1024 * 1024,
+        files: 1,
+    },
+})

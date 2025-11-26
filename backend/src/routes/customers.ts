@@ -5,13 +5,13 @@ import {
     getCustomers,
     updateCustomer,
 } from '../controllers/customers'
-import auth from '../middlewares/auth'
+import auth, { adminGuard } from '../middlewares/auth'
 
 const customerRouter = Router()
 
-customerRouter.get('/', auth, getCustomers)
-customerRouter.get('/:id', auth, getCustomerById)
-customerRouter.patch('/:id', auth, updateCustomer)
-customerRouter.delete('/:id', auth, deleteCustomer)
+customerRouter.get('/', auth, adminGuard, getCustomers)
+customerRouter.get('/:id', auth, adminGuard, getCustomerById)
+customerRouter.patch('/:id', auth, adminGuard, updateCustomer)
+customerRouter.delete('/:id', auth, adminGuard, deleteCustomer)
 
 export default customerRouter

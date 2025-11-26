@@ -7,13 +7,11 @@ import NotFoundError from '../errors/not-found-error'
 import UnauthorizedError from '../errors/unauthorized-error'
 import UserModel, { Role } from '../models/user'
 
-// есть файл middlewares/auth.js, в нём мидлвэр для проверки JWT;
-
 const auth = async (req: Request, res: Response, next: NextFunction) => {
     let payload: JwtPayload | null = null
     const authHeader = req.header('Authorization')
     if (!authHeader?.startsWith('Bearer ')) {
-        throw new UnauthorizedError('Невалидный токен')
+        return next(new UnauthorizedError('Невалидный токен'))
     }
     try {
         const accessTokenParts = authHeader.split(' ')
@@ -38,24 +36,6 @@ const auth = async (req: Request, res: Response, next: NextFunction) => {
             return next(new UnauthorizedError('Истек срок действия токена'))
         }
         return next(new UnauthorizedError('Необходима авторизация'))
-    }
-}
-
-export function roleGuardMiddleware(...roles: Role[]) {
-    return (_req: Request, res: Response, next: NextFunction) => {
-        if (!res.locals.user) {
-            return next(new UnauthorizedError('Необходима авторизация'))
-        }
-
-        const hasAccess = roles.some((role) =>
-            res.locals.user.roles.includes(role)
-        )
-
-        if (!hasAccess) {
-            return next(new ForbiddenError('Доступ запрещен'))
-        }
-
-        return next()
     }
 }
 
@@ -92,6 +72,17 @@ export function currentUserAccessMiddleware<T>(
 
         return next()
     }
+}
+
+export const adminGuard = (
+    _req: Request,
+    res: Response,
+    next: NextFunction
+) => {
+    if (!res.locals.user || !res.locals.user.roles?.includes('admin')) {
+        return next(new ForbiddenError('Доступ запрещён'))
+    }
+    next()
 }
 
 export default auth

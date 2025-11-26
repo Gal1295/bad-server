@@ -1,18 +1,26 @@
 import { NextFunction, Request, Response } from 'express'
 import { FilterQuery } from 'mongoose'
 import NotFoundError from '../errors/not-found-error'
-import Order from '../models/order'
 import User, { IUser } from '../models/user'
+import escapeRegExp from '../utils/escapeRegExp'
 
-// TODO: Добавить guard admin
+const normalizeLimit = (limit: any, max = 10): number => {
+    const parsed = parseInt(limit as string, 10)
+    return Math.min(Number.isNaN(parsed) ? max : parsed, max)
+}
+
 // eslint-disable-next-line max-len
-// Get GET /customers?page=2&limit=5&sort=totalAmount&order=desc&registrationDateFrom=2023-01-01&registrationDateTo=2023-12-31&lastOrderDateFrom=2023-01-01&lastOrderDateTo=2023-12-31&totalAmountFrom=100&totalAmountTo=1000&orderCountFrom=1&orderCountTo=10
+// GET /customers?page=2&limit=5&sort=totalAmount&order=desc&registrationDateFrom=2023-01-01&registrationDateTo=2023-12-31&lastOrderDateFrom=2023-01-01&lastOrderDateTo=2023-12-31&totalAmountFrom=100&totalAmountTo=1000&orderCountFrom=1&orderCountTo=10
 export const getCustomers = async (
     req: Request,
     res: Response,
     next: NextFunction
 ) => {
     try {
+        if (!res.locals.user.roles.includes('admin')) {
+            return res.status(403).json({ error: 'Access denied' })
+        }
+
         const {
             page = 1,
             limit = 10,
@@ -28,6 +36,9 @@ export const getCustomers = async (
             orderCountTo,
             search,
         } = req.query
+
+        const normalizedLimit = normalizeLimit(limit, 10)
+        const normalizedPage = Math.max(parseInt(page as string, 10) || 1, 1)
 
         const filters: FilterQuery<Partial<IUser>> = {}
 
@@ -92,20 +103,10 @@ export const getCustomers = async (
         }
 
         if (search) {
-            const searchRegex = new RegExp(search as string, 'i')
-            const orders = await Order.find(
-                {
-                    $or: [{ deliveryAddress: searchRegex }],
-                },
-                '_id'
-            )
+            const escapedSearch = escapeRegExp(search as string)
+            const searchRegex = new RegExp(escapedSearch, 'i')
 
-            const orderIds = orders.map((order) => order._id)
-
-            filters.$or = [
-                { name: searchRegex },
-                { lastOrder: { $in: orderIds } },
-            ]
+            filters.$or = [{ name: searchRegex }, { email: searchRegex }]
         }
 
         const sort: { [key: string]: any } = {}
@@ -114,38 +115,37 @@ export const getCustomers = async (
             sort[sortField as string] = sortOrder === 'desc' ? -1 : 1
         }
 
-        const options = {
-            sort,
-            skip: (Number(page) - 1) * Number(limit),
-            limit: Number(limit),
-        }
-
-        const users = await User.find(filters, null, options).populate([
-            'orders',
-            {
-                path: 'lastOrder',
-                populate: {
-                    path: 'products',
+        const users = await User.find(filters)
+            .select('-password -salt')
+            .populate([
+                'orders',
+                {
+                    path: 'lastOrder',
+                    populate: {
+                        path: 'products',
+                    },
                 },
-            },
-            {
-                path: 'lastOrder',
-                populate: {
-                    path: 'customer',
+                {
+                    path: 'lastOrder',
+                    populate: {
+                        path: 'customer',
+                    },
                 },
-            },
-        ])
+            ])
+            .sort(sort)
+            .limit(normalizedLimit)
+            .skip((normalizedPage - 1) * normalizedLimit)
 
         const totalUsers = await User.countDocuments(filters)
-        const totalPages = Math.ceil(totalUsers / Number(limit))
+        const totalPages = Math.ceil(totalUsers / normalizedLimit)
 
         res.status(200).json({
             customers: users,
             pagination: {
                 totalUsers,
                 totalPages,
-                currentPage: Number(page),
-                pageSize: Number(limit),
+                currentPage: normalizedPage,
+                pageSize: normalizedLimit,
             },
         })
     } catch (error) {
@@ -153,39 +153,51 @@ export const getCustomers = async (
     }
 }
 
-// TODO: Добавить guard admin
-// Get /customers/:id
 export const getCustomerById = async (
     req: Request,
     res: Response,
     next: NextFunction
 ) => {
     try {
-        const user = await User.findById(req.params.id).populate([
-            'orders',
-            'lastOrder',
-        ])
+        if (!res.locals.user.roles.includes('admin')) {
+            return res.status(403).json({ error: 'Access denied' })
+        }
+
+        const user = await User.findById(req.params.id)
+            .select('-password -salt')
+            .populate(['orders', 'lastOrder'])
+            .orFail(
+                () =>
+                    new NotFoundError(
+                        'Пользователь по заданному id отсутствует в базе'
+                    )
+            )
+
         res.status(200).json(user)
     } catch (error) {
         next(error)
     }
 }
 
-// TODO: Добавить guard admin
-// Patch /customers/:id
 export const updateCustomer = async (
     req: Request,
     res: Response,
     next: NextFunction
 ) => {
     try {
+        if (!res.locals.user.roles.includes('admin')) {
+            return res.status(403).json({ error: 'Access denied' })
+        }
+
         const updatedUser = await User.findByIdAndUpdate(
             req.params.id,
             req.body,
             {
                 new: true,
+                runValidators: true,
             }
         )
+            .select('-password -salt')
             .orFail(
                 () =>
                     new NotFoundError(
@@ -199,20 +211,24 @@ export const updateCustomer = async (
     }
 }
 
-// TODO: Добавить guard admin
-// Delete /customers/:id
 export const deleteCustomer = async (
     req: Request,
     res: Response,
     next: NextFunction
 ) => {
     try {
-        const deletedUser = await User.findByIdAndDelete(req.params.id).orFail(
-            () =>
-                new NotFoundError(
-                    'Пользователь по заданному id отсутствует в базе'
-                )
-        )
+        if (!res.locals.user.roles.includes('admin')) {
+            return res.status(403).json({ error: 'Access denied' })
+        }
+
+        const deletedUser = await User.findByIdAndDelete(req.params.id)
+            .select('-password -salt')
+            .orFail(
+                () =>
+                    new NotFoundError(
+                        'Пользователь по заданному id отсутствует в базе'
+                    )
+            )
         res.status(200).json(deletedUser)
     } catch (error) {
         next(error)
