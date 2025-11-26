@@ -27,7 +27,8 @@ const storage = multer.diskStorage({
         file: Express.Multer.File,
         cb: FileNameCallback
     ) => {
-        const fileExtension = file.originalname.split('.').pop()?.toLowerCase() || 'bin'
+        const fileExtension =
+            file.originalname.split('.').pop()?.toLowerCase() || 'bin'
         const uniqueFileName = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${fileExtension}`
         cb(null, uniqueFileName)
     },
@@ -57,6 +58,6 @@ export default multer({
     fileFilter,
     limits: {
         fileSize: 10 * 1024 * 1024,
-        files: 1
-    }
+        files: 1,
+    },
 })

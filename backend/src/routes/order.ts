@@ -16,18 +16,9 @@ const orderRouter = Router()
 orderRouter.post('/', auth, validateOrderBody, createOrder)
 orderRouter.get('/all', auth, adminGuard, getOrders)
 orderRouter.get('/all/me', auth, getOrdersCurrentUser)
-orderRouter.get(
-    '/:orderNumber',
-    auth,
-    getOrderByNumber
-)
+orderRouter.get('/:orderNumber', auth, getOrderByNumber)
 orderRouter.get('/me/:orderNumber', auth, getOrderCurrentUserByNumber)
-orderRouter.patch(
-    '/:orderNumber',
-    auth,
-    adminGuard,
-    updateOrder
-)
+orderRouter.patch('/:orderNumber', auth, adminGuard, updateOrder)
 
 orderRouter.delete('/:id', auth, adminGuard, deleteOrder)
 

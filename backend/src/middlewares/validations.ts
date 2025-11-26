@@ -38,10 +38,15 @@ export const validateOrderBody = celebrate({
             'string.empty': 'Не указан email',
             'string.email': 'Неверный формат email',
         }),
-        phone: Joi.string().required().pattern(phoneRegExp).min(5).max(20).messages({
-            'string.empty': 'Не указан телефон',
-            'string.pattern.base': 'Неверный формат телефона',
-        }),
+        phone: Joi.string()
+            .required()
+            .pattern(phoneRegExp)
+            .min(5)
+            .max(20)
+            .messages({
+                'string.empty': 'Не указан телефон',
+                'string.pattern.base': 'Неверный формат телефона',
+            }),
         address: Joi.string().required().max(200).messages({
             'string.empty': 'Не указан адрес',
             'string.max': 'Адрес слишком длинный',
@@ -60,8 +65,8 @@ export const validatePagination = celebrate({
         limit: Joi.number().integer().min(1).max(10).default(10),
         search: Joi.string().max(100).optional(),
         sortField: Joi.string().optional(),
-        sortOrder: Joi.string().valid('asc', 'desc').default('desc')
-    })
+        sortOrder: Joi.string().valid('asc', 'desc').default('desc'),
+    }),
 })
 
 export const validateProductBody = celebrate({

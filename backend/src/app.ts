@@ -27,16 +27,17 @@ app.use(limiter)
 app.use(cookieParser())
 
 // CORS с настройками безопасности
-app.use(cors({
-    origin: process.env.ORIGIN_ALLOW || '*',
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-}))
+app.use(
+    cors({
+        origin: process.env.ORIGIN_ALLOW || '*',
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    })
+)
 
 app.use(serveStatic(path.join(__dirname, 'public')))
 
-// Body size limit
 app.use(urlencoded({ extended: true, limit: '10mb' }))
 app.use(json({ limit: '10mb' }))
 

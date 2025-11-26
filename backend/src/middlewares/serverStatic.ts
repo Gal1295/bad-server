@@ -4,11 +4,11 @@ import path from 'path'
 
 export default function serveStatic(baseDir: string) {
     return (req: Request, res: Response, next: NextFunction) => {
-        const normalizedPath = path.normalize(req.path)       
-        const filePath = path.join(baseDir, normalizedPath)        
+        const normalizedPath = path.normalize(req.path)
+        const filePath = path.join(baseDir, normalizedPath)
         const resolvedBaseDir = path.resolve(baseDir)
         const resolvedFilePath = path.resolve(filePath)
-        
+
         if (!resolvedFilePath.startsWith(resolvedBaseDir)) {
             return next()
         }

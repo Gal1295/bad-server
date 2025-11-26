@@ -15,13 +15,7 @@ import {
 const productRouter = Router()
 
 productRouter.get('/', getProducts)
-productRouter.post(
-    '/',
-    auth,
-    adminGuard,
-    validateProductBody,
-    createProduct
-)
+productRouter.post('/', auth, adminGuard, validateProductBody, createProduct)
 productRouter.delete(
     '/:productId',
     auth,
